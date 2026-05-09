@@ -10,6 +10,7 @@ import com.nsai.notes.data.local.db.MIGRATION_4_5
 import com.nsai.notes.data.local.db.dao.ConversationDao
 import com.nsai.notes.data.local.db.dao.NoteDao
 import com.nsai.notes.data.local.db.dao.TagDao
+import com.nsai.notes.data.local.memory.MemoryDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -41,4 +42,7 @@ object DatabaseModule {
 
     @Provides
     fun provideConversationDao(database: AppDatabase): ConversationDao = database.conversationDao()
+
+    @Provides
+    fun provideMemoryDao(database: AppDatabase): MemoryDao = database.memoryDao()
 }
