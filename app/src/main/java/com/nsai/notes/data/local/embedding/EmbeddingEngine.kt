@@ -8,11 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.nio.LongBuffer
-import javax.inject.Inject
-import javax.inject.Singleton
-
-@Singleton
-class EmbeddingEngine @Inject constructor() {
+class EmbeddingEngine {
 
     private var session: OrtSession? = null
     private val env = OrtEnvironment.getEnvironment()

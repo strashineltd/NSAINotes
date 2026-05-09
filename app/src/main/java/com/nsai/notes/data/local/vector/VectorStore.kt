@@ -6,11 +6,7 @@ import com.nsai.notes.data.local.embedding.EmbeddingEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.ByteBuffer
-import javax.inject.Inject
-import javax.inject.Singleton
-
-@Singleton
-class VectorStore @Inject constructor(
+class VectorStore(
     private val db: AppDatabase
 ) {
 
