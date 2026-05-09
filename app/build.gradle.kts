@@ -130,8 +130,8 @@ dependencies {
     // Markdown
     implementation(libs.markwon)
 
-    // ONNX Runtime
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.18.0")
+    // Embeddings / ML
+    implementation(libs.onnxruntime.android)
 
     // Testing
     testImplementation(libs.junit)
