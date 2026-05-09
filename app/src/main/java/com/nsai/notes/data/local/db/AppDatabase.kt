@@ -72,6 +72,37 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS chunks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                note_id INTEGER NOT NULL,
+                chunk_index INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                embedding BLOB NOT NULL,
+                created_at INTEGER NOT NULL
+            )
+        """)
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_chunks_note_id ON chunks(note_id)")
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS memories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                type TEXT NOT NULL,
+                key TEXT NOT NULL,
+                content TEXT NOT NULL,
+                importance REAL NOT NULL DEFAULT 0.5,
+                embedding BLOB NOT NULL,
+                source_conversation_id INTEGER,
+                access_count INTEGER NOT NULL DEFAULT 0,
+                last_accessed_at INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL,
+                FOREIGN KEY (source_conversation_id) REFERENCES conversations(id)
+            )
+        """)
+    }
+}
+
 @Database(
     entities = [
         NoteEntity::class,
@@ -81,7 +112,7 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
         ChunkEntity::class,
         MemoryEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
