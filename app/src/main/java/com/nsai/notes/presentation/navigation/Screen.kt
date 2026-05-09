@@ -15,6 +15,7 @@ sealed class Screen(val route: String) {
     data object MCPSkill : Screen("mcp_skill")
     data object Files : Screen("files")
     data object KnowledgeBase : Screen("knowledge_base")
+    data object MemoryView : Screen("memory_view")
 }
 
 enum class BottomNavItem(val label: String, val route: String) {
