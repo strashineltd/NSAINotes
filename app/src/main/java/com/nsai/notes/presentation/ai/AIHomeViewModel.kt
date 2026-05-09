@@ -11,6 +11,7 @@ import com.nsai.notes.domain.model.AIProvider
 import com.nsai.notes.domain.model.ChatMessage
 import com.nsai.notes.domain.model.Conversation
 import com.nsai.notes.domain.model.Note
+import com.nsai.notes.domain.agent.ReActLoop
 import com.nsai.notes.domain.rag.RetrieveContextUseCase
 import com.nsai.notes.domain.repository.AIService
 import com.nsai.notes.domain.repository.ConversationRepository
@@ -89,7 +90,8 @@ class AIHomeViewModel @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
     private val conversationRepository: ConversationRepository,
     private val webSearchService: WebSearchService,
-    private val retrieveContextUseCase: RetrieveContextUseCase
+    private val retrieveContextUseCase: RetrieveContextUseCase,
+    private val reActLoop: ReActLoop
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AIHomeUiState())
@@ -308,7 +310,17 @@ class AIHomeViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 if (_uiState.value.isAgentMode) {
-                    executeAgentCommand(text)
+                    try {
+                        val result = reActLoop.execute(text, _uiState.value.selectedProvider)
+                        _uiState.value = _uiState.value.copy(
+                            messages = _uiState.value.messages + ChatMessage(ChatMessage.Role.ASSISTANT, result),
+                            isLoading = false
+                        )
+                        saveCurrentConversation()
+                    } catch (e: Exception) {
+                        _uiState.value = _uiState.value.copy(isLoading = false, error = e.message ?: "Agent执行失败")
+                    }
+                    return@launch
                 } else if (_uiState.value.isDocGenMode) {
                     generateDocument(text)
                 } else {
