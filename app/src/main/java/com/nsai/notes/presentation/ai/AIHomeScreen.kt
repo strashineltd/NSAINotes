@@ -2,9 +2,6 @@ package com.nsai.notes.presentation.ai
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -14,7 +11,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
@@ -33,7 +29,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -52,6 +47,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -65,7 +61,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -75,6 +73,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -99,13 +98,12 @@ import com.nsai.notes.domain.model.AIMode
 import com.nsai.notes.domain.model.ChatMessage
 import com.nsai.notes.domain.model.Conversation
 import com.nsai.notes.domain.model.Note
-import com.nsai.notes.presentation.voice.VoiceInputDialog
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import com.nsai.notes.presentation.theme.LocalAnimationConfig
+import com.nsai.notes.presentation.voice.VoiceInputDialog
 
-// Welcome suggestion data
-private data class Suggestion(val icon: ImageVector, val title: String, val prompt: String, val gradient: List<Color>)
+private data class Suggestion(
+    val icon: ImageVector, val title: String, val prompt: String, val gradient: List<Color>
+)
 
 private val suggestions = listOf(
     Suggestion(Icons.Default.Lightbulb, "创意灵感", "给我一些创意写作的灵感", listOf(Color(0xFFFF6B6B), Color(0xFFFF8E53))),
@@ -132,7 +130,7 @@ fun AIHomeScreen(
     var showVoiceDialog by remember { mutableStateOf(false) }
     var showBrowser by remember { mutableStateOf(false) }
     var browserUrl by remember { mutableStateOf("https://www.google.com") }
-    var showModeMenu by remember { mutableStateOf(false) }
+    var showMoreSheet by remember { mutableStateOf(false) }
     val hasConversation = uiState.messages.size > 1
 
     LaunchedEffect(uiState.messages.size) {
@@ -154,12 +152,60 @@ fun AIHomeScreen(
         onDismiss = { viewModel.onEvent(AIHomeEvent.ToggleHistory) }
     )
 
+    // "+" more modes bottom sheet
+    if (showMoreSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showMoreSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            Column(Modifier.padding(bottom = 32.dp)) {
+                ListItem(
+                    headlineContent = { Text("Agent") },
+                    supportingContent = { Text("AI 多步推理，调用工具完成任务") },
+                    leadingContent = { Icon(Icons.Default.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary) },
+                    modifier = Modifier.clickable {
+                        showMoreSheet = false
+                        viewModel.onEvent(AIHomeEvent.ToggleAgentMode)
+                    }
+                )
+                ListItem(
+                    headlineContent = { Text("知识库搜索") },
+                    supportingContent = { Text("从你的笔记中检索相关内容辅助回答") },
+                    leadingContent = { Icon(Icons.Default.Search, null, tint = Color(0xFF10A37F)) },
+                    modifier = Modifier.clickable {
+                        showMoreSheet = false
+                        viewModel.onEvent(AIHomeEvent.ToggleRagMode)
+                    }
+                )
+                ListItem(
+                    headlineContent = { Text("图片生成") },
+                    supportingContent = { Text("输入描述，AI 生成图片") },
+                    leadingContent = { Icon(Icons.Default.Image, null, tint = Color(0xFFE91E63)) },
+                    modifier = Modifier.clickable {
+                        showMoreSheet = false
+                        viewModel.onEvent(AIHomeEvent.SelectMode(AIMode.IMAGE))
+                    }
+                )
+                ListItem(
+                    headlineContent = { Text("文档生成") },
+                    supportingContent = { Text("AI 生成完整文档并自动保存为笔记") },
+                    leadingContent = { Icon(Icons.Default.Description, null, tint = Color(0xFF0070F3)) },
+                    modifier = Modifier.clickable {
+                        showMoreSheet = false
+                        viewModel.onEvent(AIHomeEvent.ToggleDocGenMode)
+                    }
+                )
+                Spacer(Modifier.height(16.dp))
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("AI 助手", style = MaterialTheme.typography.titleLarge)
+                        Text("NSAI AI", style = MaterialTheme.typography.titleLarge)
                         Spacer(Modifier.width(10.dp))
                         Card(
                             shape = RoundedCornerShape(8.dp),
@@ -177,8 +223,9 @@ fun AIHomeScreen(
                 },
                 actions = {
                     IconButton(onClick = { viewModel.onEvent(AIHomeEvent.ToggleHistory) }) {
-                        Icon(Icons.Default.History, "历史", tint = if (uiState.showHistory) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(Icons.Default.History, "历史",
+                            tint = if (uiState.showHistory) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = onNavigateToMCPSkill) {
                         Icon(Icons.Default.Extension, "插件", tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -187,14 +234,17 @@ fun AIHomeScreen(
                         Icon(Icons.Default.Settings, "设置", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // Main content
+            // Main content area
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 AnimatedContent(
                     targetState = hasConversation || uiState.isLoading,
@@ -205,6 +255,7 @@ fun AIHomeScreen(
                         ChatView(
                             messages = uiState.messages, isLoading = uiState.isLoading,
                             listState = chatListState, searchResults = uiState.searchResults,
+                            generatedImage = uiState.generatedImage,
                             onUrlClick = { browserUrl = it; showBrowser = true }
                         )
                     } else {
@@ -216,44 +267,55 @@ fun AIHomeScreen(
                 }
             }
 
-            // Mode selector row
-            ModeSelector(
-                currentMode = uiState.currentMode,
-                isWebSearch = uiState.isWebSearchMode,
-                isAgent = uiState.isAgentMode,
-                isDocGen = uiState.isDocGenMode,
-                onSelectMode = { viewModel.onEvent(AIHomeEvent.SelectMode(it)) },
-                onToggleWeb = { viewModel.onEvent(AIHomeEvent.ToggleWebSearch) },
-                onToggleAgent = { viewModel.onEvent(AIHomeEvent.ToggleAgentMode) },
-                onToggleDocGen = { viewModel.onEvent(AIHomeEvent.ToggleDocGenMode) }
-            )
+            // Active mode indicator
+            val activeLabel = activeModeLabel(uiState)
+            if (activeLabel.isNotEmpty()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(activeModeIcon(uiState), null, Modifier.size(12.dp), tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(4.dp))
+                    Text(activeLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                }
+            }
 
-            // Image generation
-            AnimatedVisibility(
-                visible = uiState.currentMode == AIMode.IMAGE,
-                enter = expandVertically(tween(tokens.fastDuration)) + fadeIn(tween(tokens.fastDuration)),
-                exit = shrinkVertically(tween(tokens.fastDuration)) + fadeOut(tween(tokens.fastDuration))
+            // Mode selector: 3 core chips + "+" more
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                ImageGenBar(
-                    prompt = uiState.imagePrompt, isLoading = uiState.isLoading,
-                    generated = uiState.generatedImage,
-                    onPromptChange = { viewModel.onEvent(AIHomeEvent.UpdateImagePrompt(it)) },
-                    onGenerate = { viewModel.onEvent(AIHomeEvent.GenerateImage) }
-                )
+                ModeChip(Icons.Default.Speed, "快速",
+                    selected = uiState.currentMode == AIMode.QUICK && !uiState.isAgentMode && !uiState.isDocGenMode && !uiState.isWebSearchMode && !uiState.isRagMode
+                ) { viewModel.onEvent(AIHomeEvent.SelectMode(AIMode.QUICK)) }
+
+                ModeChip(Icons.Default.Psychology, "思考",
+                    selected = uiState.currentMode == AIMode.THINK && !uiState.isAgentMode && !uiState.isDocGenMode && !uiState.isWebSearchMode && !uiState.isRagMode
+                ) { viewModel.onEvent(AIHomeEvent.SelectMode(AIMode.THINK)) }
+
+                ModeChip(Icons.Default.TravelExplore, "联网",
+                    selected = uiState.isWebSearchMode
+                ) { viewModel.onEvent(AIHomeEvent.ToggleWebSearch) }
+
+                val hasMoreActive = uiState.isAgentMode || uiState.isRagMode || uiState.currentMode == AIMode.IMAGE || uiState.isDocGenMode
+                ModeChip(Icons.Default.MoreHoriz, if (hasMoreActive) activeMoreLabel(uiState) else "更多",
+                    selected = hasMoreActive
+                ) { showMoreSheet = true }
             }
 
             // Input bar
             InputBar(
-                text = uiState.inputText, isLoading = uiState.isLoading,
-                onTextChange = { viewModel.onEvent(AIHomeEvent.UpdateInput(it)) },
-                onSend = { viewModel.onEvent(AIHomeEvent.SendMessage) },
+                text = if (uiState.currentMode == AIMode.IMAGE) uiState.imagePrompt else uiState.inputText,
+                isLoading = uiState.isLoading,
+                onTextChange = { if (uiState.currentMode == AIMode.IMAGE) viewModel.onEvent(AIHomeEvent.UpdateImagePrompt(it)) else viewModel.onEvent(AIHomeEvent.UpdateInput(it)) },
+                onSend = { if (uiState.currentMode == AIMode.IMAGE) viewModel.onEvent(AIHomeEvent.GenerateImage) else viewModel.onEvent(AIHomeEvent.SendMessage) },
                 onVoice = { showVoiceDialog = true },
                 onBrowser = { browserUrl = ""; showBrowser = true }
             )
         }
     }
 
-    // Browser overlay — must be after Scaffold for z-order
+    // Browser overlay
     if (showBrowser) WebBrowserDialog(
         initialUrl = browserUrl,
         searchEngine = uiState.searchEngine,
@@ -271,40 +333,35 @@ fun AIHomeScreen(
     )
 }
 
-// ─── Mode Selector ───
-@Composable
-private fun ModeSelector(
-    currentMode: AIMode, isWebSearch: Boolean, isAgent: Boolean, isDocGen: Boolean,
-    onSelectMode: (AIMode) -> Unit, onToggleWeb: () -> Unit, onToggleAgent: () -> Unit, onToggleDocGen: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        val modes = remember { AIMode.entries }
-        modes.forEach { mode ->
-            val (icon, label) = remember(mode) {
-                when (mode) {
-                    AIMode.QUICK -> Icons.Default.Speed to "快速"
-                    AIMode.THINK -> Icons.Default.Psychology to "思考"
-                    AIMode.IMAGE -> Icons.Default.Image to "图片"
-                }
-            }
-            val selected = currentMode == mode
-            ModeChip(
-                icon = icon,
-                label = label,
-                selected = selected,
-                onClick = { onSelectMode(mode) }
-            )
-        }
-        Spacer(Modifier.width(2.dp))
-        ModeChip(icon = Icons.Default.TravelExplore, label = "联网", selected = isWebSearch, onClick = onToggleWeb)
-        ModeChip(icon = Icons.Default.AutoAwesome, label = "Agent", selected = isAgent, onClick = onToggleAgent)
-        ModeChip(icon = Icons.Default.Description, label = "文档", selected = isDocGen, onClick = onToggleDocGen)
-    }
+private fun activeModeLabel(state: AIHomeUiState): String = when {
+    state.isAgentMode -> "当前: Agent"
+    state.isRagMode -> "当前: 知识库搜索"
+    state.isDocGenMode -> "当前: 文档生成"
+    state.isWebSearchMode -> "当前: 联网搜索"
+    state.currentMode == AIMode.THINK -> "当前: 思考模式"
+    state.currentMode == AIMode.IMAGE -> "当前: 图片生成"
+    else -> ""
 }
 
+private fun activeModeIcon(state: AIHomeUiState): ImageVector = when {
+    state.isAgentMode -> Icons.Default.AutoAwesome
+    state.isRagMode -> Icons.Default.Search
+    state.isDocGenMode -> Icons.Default.Description
+    state.isWebSearchMode -> Icons.Default.TravelExplore
+    state.currentMode == AIMode.THINK -> Icons.Default.Psychology
+    state.currentMode == AIMode.IMAGE -> Icons.Default.Image
+    else -> Icons.Default.Speed
+}
+
+private fun activeMoreLabel(state: AIHomeUiState): String = when {
+    state.isAgentMode -> "Agent"
+    state.isRagMode -> "知识库"
+    state.currentMode == AIMode.IMAGE -> "图片"
+    state.isDocGenMode -> "文档"
+    else -> "更多"
+}
+
+// ─── Mode Chip ───
 @Composable
 private fun ModeChip(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
     val tokens = LocalAnimationConfig.current
@@ -314,7 +371,6 @@ private fun ModeChip(icon: ImageVector, label: String, selected: Boolean, onClic
         animationSpec = tween(tokens.fastDuration), label = "chipBg"
     )
     val contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-
     Card(
         modifier = Modifier.clickable(onClick = onClick), shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = bgColor), elevation = CardDefaults.cardElevation(0.dp)
@@ -330,13 +386,11 @@ private fun ModeChip(icon: ImageVector, label: String, selected: Boolean, onClic
 // ─── Welcome View ───
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun WelcomeView(
-    onSuggestion: (String) -> Unit,
-    notes: List<Note>, onNoteClick: (Long) -> Unit
-) {
+private fun WelcomeView(onSuggestion: (String) -> Unit, notes: List<Note>, onNoteClick: (Long) -> Unit) {
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
-            Text("你好，今天需要什么帮助？", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+            Text("你好，今天需要什么帮助？", style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
             Spacer(Modifier.height(14.dp))
         }
         item {
@@ -347,16 +401,16 @@ private fun WelcomeView(
                         elevation = CardDefaults.cardElevation(1.dp)
                     ) {
                         Row(
-                            modifier = Modifier.background(
-                                s.gradient.first().copy(alpha = 0.08f)
-                            ).padding(horizontal = 14.dp, vertical = 12.dp),
+                            modifier = Modifier.background(s.gradient.first().copy(alpha = 0.08f))
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(s.icon, null, Modifier.size(20.dp), tint = s.gradient.first())
                             Spacer(Modifier.width(10.dp))
                             Column {
                                 Text(s.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                                Text(s.prompt, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), maxLines = 1)
+                                Text(s.prompt, style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), maxLines = 1)
                             }
                         }
                     }
@@ -365,20 +419,23 @@ private fun WelcomeView(
         }
         if (notes.isNotEmpty()) {
             item { HorizontalDivider(modifier = Modifier.padding(top = 4.dp)) }
-            item {
-                Text("最近的笔记", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-            }
+            item { Text("最近的笔记", style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)) }
             items(notes, key = { it.id }) { note ->
                 Card(
-                    modifier = Modifier.fillMaxWidth().clickable { onNoteClick(note.id) }, shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(1.dp)
+                    modifier = Modifier.fillMaxWidth().clickable { onNoteClick(note.id) },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(1.dp)
                 ) {
                     Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(note.title.ifBlank { "无标题" }, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(note.content.take(60).replace("\n", " "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), maxLines = 1)
+                            Text(note.title.ifBlank { "无标题" }, style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(note.content.take(60).replace("\n", " "), style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), maxLines = 1)
                         }
                     }
                 }
@@ -393,6 +450,7 @@ private fun ChatView(
     messages: List<ChatMessage>, isLoading: Boolean,
     listState: androidx.compose.foundation.lazy.LazyListState,
     searchResults: List<com.nsai.notes.data.remote.search.SearchResult>,
+    generatedImage: String?,
     onUrlClick: (String) -> Unit
 ) {
     LazyColumn(
@@ -401,12 +459,19 @@ private fun ChatView(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         items(messages, key = { it.timestamp }) { msg -> ChatBubble(msg, onUrlClick) }
+        if (generatedImage != null) {
+            item(key = "generated_image") {
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                    AsyncImage(generatedImage, null, Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Crop)
+                }
+            }
+        }
         if (searchResults.isNotEmpty()) {
             item(key = "search_results") {
                 SearchResultsCard(
                     query = messages.lastOrNull { it.role == ChatMessage.Role.USER }?.content ?: "",
-                    results = searchResults,
-                    onResultClick = onUrlClick
+                    results = searchResults, onResultClick = onUrlClick
                 )
             }
         }
@@ -415,7 +480,8 @@ private fun ChatView(
                 Row(modifier = Modifier.padding(start = 4.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     ThinkingDots()
                     Spacer(Modifier.width(8.dp))
-                    Text("思考中...", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+                    Text("思考中...", style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
                 }
             }
         }
@@ -450,7 +516,8 @@ private fun ChatBubble(message: ChatMessage, onUrlClick: (String) -> Unit = {}) 
 
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalAlignment = alignment) {
         if (!isUser) {
-            Text("AI 助手", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+            Text("AI 助手", style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
                 modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
         }
         Card(colors = CardDefaults.cardColors(containerColor = bg), shape = shape, elevation = CardDefaults.cardElevation(0.dp)) {
@@ -461,14 +528,23 @@ private fun ChatBubble(message: ChatMessage, onUrlClick: (String) -> Unit = {}) 
                         Modifier.clickable { expanded = !expanded }.padding(horizontal = 14.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Psychology, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                        Icon(Icons.Default.Psychology, null, Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
                         Spacer(Modifier.width(6.dp))
-                        Text("思考过程", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f), modifier = Modifier.weight(1f))
-                        Text(if (expanded) "收起" else "展开", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
+                        Text("思考过程", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                            modifier = Modifier.weight(1f))
+                        Text(if (expanded) "收起" else "展开", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
                     }
-                    AnimatedVisibility(expanded, enter = expandVertically(tween(tokens.fastDuration)) + fadeIn(tween(tokens.fastDuration)), exit = shrinkVertically(tween(tokens.fastDuration)) + fadeOut(tween(tokens.fastDuration))) {
-                        Text(reasoning, style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)),
-                            modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)).padding(horizontal = 14.dp, vertical = 8.dp))
+                    AnimatedVisibility(expanded,
+                        enter = expandVertically(tween(tokens.fastDuration)) + fadeIn(tween(tokens.fastDuration)),
+                        exit = shrinkVertically(tween(tokens.fastDuration)) + fadeOut(tween(tokens.fastDuration))
+                    ) {
+                        Text(reasoning,
+                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)),
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                                .padding(horizontal = 14.dp, vertical = 8.dp))
                     }
                 }
                 androidx.compose.foundation.text.ClickableText(
@@ -482,55 +558,51 @@ private fun ChatBubble(message: ChatMessage, onUrlClick: (String) -> Unit = {}) 
     }
 }
 
-// ─── Image Gen Bar ───
-@Composable
-private fun ImageGenBar(prompt: String, isLoading: Boolean, generated: String?,
-                         onPromptChange: (String) -> Unit, onGenerate: () -> Unit) {
-    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(value = prompt, onValueChange = onPromptChange, modifier = Modifier.weight(1f),
-                placeholder = { Text("输入图片描述...") }, singleLine = true, shape = RoundedCornerShape(12.dp),
-                textStyle = MaterialTheme.typography.bodySmall)
-            Spacer(Modifier.width(8.dp))
-            IconButton(onClick = onGenerate, enabled = prompt.isNotBlank() && !isLoading) {
-                Icon(Icons.Default.AutoAwesome, "生成", tint = MaterialTheme.colorScheme.primary)
-            }
-        }
-        if (isLoading) Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp)) }
-        generated?.let { AsyncImage(it, null, Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop) }
-    }
-}
-
 // ─── Input Bar ───
 @Composable
-private fun InputBar(text: String, isLoading: Boolean, onTextChange: (String) -> Unit,
-                     onSend: () -> Unit, onVoice: () -> Unit, onBrowser: () -> Unit) {
+private fun InputBar(
+    text: String, isLoading: Boolean, onTextChange: (String) -> Unit,
+    onSend: () -> Unit, onVoice: () -> Unit, onBrowser: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
         shape = RoundedCornerShape(26.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
-        Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(value = text, onValueChange = onTextChange, modifier = Modifier.weight(1f),
-                placeholder = { Text("输入消息...", style = MaterialTheme.typography.bodyMedium) }, singleLine = true,
-                shape = RoundedCornerShape(22.dp),
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent,
-                    focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent))
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = text, onValueChange = onTextChange, modifier = Modifier.weight(1f),
+                placeholder = { Text("输入消息...", style = MaterialTheme.typography.bodyMedium) },
+                singleLine = true, shape = RoundedCornerShape(22.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent,
+                    focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent
+                )
+            )
             IconButton(onClick = onBrowser, modifier = Modifier.size(38.dp)) {
-                Icon(Icons.Default.TravelExplore, "浏览器", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Default.TravelExplore, "浏览器", Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             IconButton(onClick = onVoice, modifier = Modifier.size(38.dp)) {
-                Icon(Icons.Default.Mic, "语音", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Default.Mic, "语音", Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             val canSend = text.isNotBlank() && !isLoading
             Box(
-                Modifier.size(38.dp).clip(CircleShape).background(if (canSend) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
+                Modifier.size(38.dp).clip(CircleShape)
+                    .background(if (canSend) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
-                if (isLoading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (isLoading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                 else IconButton(onClick = onSend, enabled = canSend, modifier = Modifier.size(38.dp)) {
-                    Icon(Icons.AutoMirrored.Filled.Send, "发送", Modifier.size(18.dp), tint = if (canSend) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
+                    Icon(Icons.AutoMirrored.Filled.Send, "发送", Modifier.size(18.dp),
+                        tint = if (canSend) MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
                 }
             }
         }
@@ -555,27 +627,36 @@ private fun ConversationHistoryPanel(
             Column(Modifier.fillMaxSize()) {
                 Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("对话历史", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onNew) { Icon(Icons.Default.Add, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(4.dp)); Text("新建") }
+                    TextButton(onClick = onNew) {
+                        Icon(Icons.Default.Add, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(4.dp)); Text("新建")
+                    }
                 }
                 if (conversations.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("暂无对话记录", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+                    Text("暂无对话记录", style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
                 } else LazyColumn(Modifier.weight(1f)) {
                     items(conversations, key = { it.id }) { conv ->
                         Card(
                             Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clickable { onSelect(conv) },
                             shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = if (conv.id == currentId) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surface)
+                            colors = CardDefaults.cardColors(containerColor = if (conv.id == currentId)
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                            else MaterialTheme.colorScheme.surface)
                         ) {
                             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
-                                    Text(conv.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    Text(conv.title, style = MaterialTheme.typography.bodyMedium,
+                                        maxLines = 1, overflow = TextOverflow.Ellipsis,
                                         fontWeight = if (conv.id == currentId) FontWeight.Bold else FontWeight.Normal)
                                     Spacer(Modifier.height(2.dp))
                                     Text("${conv.messages.size} 条消息 · ${java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(conv.updatedAt))}",
-                                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                                 }
                                 IconButton(onClick = { onDelete(conv.id) }, Modifier.size(32.dp)) {
-                                    Icon(Icons.Default.Delete, "删除", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f))
+                                    Icon(Icons.Default.Delete, "删除", Modifier.size(16.dp),
+                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f))
                                 }
                             }
                         }
@@ -588,22 +669,31 @@ private fun ConversationHistoryPanel(
 
 // ─── Search Results Card ───
 @Composable
-private fun SearchResultsCard(query: String, results: List<com.nsai.notes.data.remote.search.SearchResult>, onResultClick: (String) -> Unit) {
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f))) {
+private fun SearchResultsCard(
+    query: String, results: List<com.nsai.notes.data.remote.search.SearchResult>, onResultClick: (String) -> Unit
+) {
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f))) {
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.TravelExplore, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(6.dp))
-                Text("搜索: $query", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("搜索: $query", style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.height(8.dp))
             results.take(5).forEach { r ->
-                Row(Modifier.fillMaxWidth().clickable { onResultClick(r.url) }.padding(vertical = 6.dp), verticalAlignment = Alignment.Top) {
-                    AsyncImage(r.iconUrl ?: "https://www.google.com/s2/favicons?domain=${java.net.URI(r.url).host}", null, Modifier.size(18.dp).clip(RoundedCornerShape(4.dp)))
+                Row(Modifier.fillMaxWidth().clickable { onResultClick(r.url) }.padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.Top) {
+                    AsyncImage(
+                        r.iconUrl ?: "https://www.google.com/s2/favicons?domain=${java.net.URI(r.url).host}",
+                        null, Modifier.size(18.dp).clip(RoundedCornerShape(4.dp))
+                    )
                     Spacer(Modifier.width(8.dp))
                     Column(Modifier.weight(1f)) {
                         Text(r.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(r.snippet.take(80), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
+                        Text(r.snippet.take(80), style = MaterialTheme.typography.bodySmall, maxLines = 2,
+                            overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
                     }
                 }
             }

@@ -150,14 +150,16 @@ class AIHomeViewModel @Inject constructor(
             AIHomeEvent.GenerateImage -> generateImage()
             AIHomeEvent.ToggleAgentMode -> toggleAgent()
             AIHomeEvent.ToggleDocGenMode -> toggleDocGen()
-            AIHomeEvent.ToggleWebSearch -> _uiState.value = _uiState.value.copy(
-                isWebSearchMode = !_uiState.value.isWebSearchMode,
-                isAgentMode = false, isDocGenMode = false
-            )
-            AIHomeEvent.ToggleRagMode -> _uiState.value = _uiState.value.copy(
-                isRagMode = !_uiState.value.isRagMode,
-                isWebSearchMode = false, isAgentMode = false, isDocGenMode = false
-            )
+            AIHomeEvent.ToggleWebSearch -> {
+                val wasActive = _uiState.value.isWebSearchMode
+                clearAllModes()
+                if (!wasActive) _uiState.value = _uiState.value.copy(isWebSearchMode = true)
+            }
+            AIHomeEvent.ToggleRagMode -> {
+                val wasActive = _uiState.value.isRagMode
+                clearAllModes()
+                if (!wasActive) _uiState.value = _uiState.value.copy(isRagMode = true)
+            }
             AIHomeEvent.ClearError -> _uiState.value = _uiState.value.copy(error = null)
             AIHomeEvent.LoadHistory -> loadHistory()
             AIHomeEvent.NewConversation -> newConversation()
@@ -264,24 +266,36 @@ class AIHomeViewModel @Inject constructor(
         viewModelScope.launch { try { _uiState.value = _uiState.value.copy(recentNotes = getAllNotesUseCase().first().take(10)) } catch (_: Exception) {} }
     }
 
+    private fun clearAllModes() {
+        _uiState.value = _uiState.value.copy(
+            currentMode = AIMode.QUICK, imagePrompt = "", generatedImage = null,
+            isAgentMode = false, isDocGenMode = false, isWebSearchMode = false, isRagMode = false
+        )
+    }
+
     private fun selectMode(mode: AIMode) {
-        _uiState.value = _uiState.value.copy(currentMode = mode, imagePrompt = "", generatedImage = null, isAgentMode = false, isDocGenMode = false)
+        clearAllModes()
+        _uiState.value = _uiState.value.copy(currentMode = mode)
     }
 
     private fun toggleAgent() {
-        _uiState.value = _uiState.value.copy(isAgentMode = !_uiState.value.isAgentMode, isDocGenMode = false, currentMode = AIMode.QUICK)
-        if (_uiState.value.isAgentMode) {
-            _uiState.value = _uiState.value.copy(
-                messages = listOf(ChatMessage(ChatMessage.Role.ASSISTANT, "🤖 AI Agent 已激活！\n\n你可以命令我：\n• 「创建笔记 标题XXX 内容XXX」\n• 「搜索包含XXX的笔记」\n• 「列出所有笔记」\n• 「帮我记备忘 标题XXX」"))
+        val wasActive = _uiState.value.isAgentMode
+        clearAllModes()
+        if (!wasActive) {
+            _uiState.value = _uiState.value.copy(isAgentMode = true,
+                messages = listOf(ChatMessage(ChatMessage.Role.ASSISTANT,
+                    "🤖 AI Agent 已激活！\n你可以给我任务指令，我会使用工具逐步完成。"))
             )
         }
     }
 
     private fun toggleDocGen() {
-        _uiState.value = _uiState.value.copy(isDocGenMode = !_uiState.value.isDocGenMode, isAgentMode = false, currentMode = AIMode.QUICK)
-        if (_uiState.value.isDocGenMode) {
-            _uiState.value = _uiState.value.copy(
-                messages = listOf(ChatMessage(ChatMessage.Role.ASSISTANT, "📝 AI文档生成器已激活！\n\n请描述你需要的文档：\n• 「写一份AI人工智能介绍」\n• 「生成一份周报模板」\n• 「帮我写读书笔记 书名叫XXX」"))
+        val wasActive = _uiState.value.isDocGenMode
+        clearAllModes()
+        if (!wasActive) {
+            _uiState.value = _uiState.value.copy(isDocGenMode = true,
+                messages = listOf(ChatMessage(ChatMessage.Role.ASSISTANT,
+                    "📝 AI文档生成器已激活！\n请描述你需要的文档主题，我会生成并自动保存为笔记。"))
             )
         }
     }
@@ -352,54 +366,6 @@ class AIHomeViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(isLoading = false, error = e.message ?: "请求失败")
             }
         }
-    }
-
-    private fun executeAgentCommand(cmd: String) {
-        viewModelScope.launch {
-            try {
-                val result = when {
-                    Regex("(创建|新建)(笔记|备忘)").containsMatchIn(cmd) -> executeCreateNote(cmd)
-                    Regex("(搜索|查找)\\p{IsHan}").containsMatchIn(cmd) -> executeSearch(cmd)
-                    Regex("(列出|显示|查看).*(笔记|所有)").containsMatchIn(cmd) -> executeListNotes()
-                    else -> "未识别的命令，请尝试：\n• 创建笔记 标题XXX 内容XXX\n• 搜索XXX\n• 列出所有笔记"
-                }
-                _uiState.value = _uiState.value.copy(
-                    messages = _uiState.value.messages + ChatMessage(ChatMessage.Role.ASSISTANT, result), isLoading = false)
-                saveCurrentConversation()
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message ?: "执行失败")
-            }
-        }
-    }
-
-    private suspend fun executeCreateNote(cmd: String): String {
-        val title = extractField(cmd, "标题")
-        val content = if (cmd.contains("内容")) extractField(cmd, "内容") else cmd.substringAfterLast("内容").trim()
-        if (title.isBlank() || content.isBlank()) return "请使用格式：创建笔记 标题XXX 内容XXX"
-        noteRepository.createNote(Note(title = title, content = content))
-        loadNotes()
-        return "已创建笔记「$title」"
-    }
-
-    private suspend fun executeSearch(cmd: String): String {
-        val keyword = cmd.substringAfter("搜索").substringBefore("的笔记").substringBefore("的")
-            .ifBlank { cmd.substringAfter("查找").trim() }.trim()
-        if (keyword.isBlank()) return "请输入要搜索的关键词"
-        val notes = noteRepository.searchNotes(keyword).first()
-        return if (notes.isEmpty()) "未找到包含「$keyword」的笔记"
-        else "找到${notes.size}篇笔记：\n${notes.take(5).joinToString("\n") { "• ${it.title}" }}"
-    }
-
-    private suspend fun executeListNotes(): String {
-        val notes = noteRepository.getAllNotes().first()
-        return if (notes.isEmpty()) "还没有笔记"
-        else "共${notes.size}篇笔记：\n${notes.take(10).joinToString("\n") { "• ${it.title}" }}"
-    }
-
-    private fun extractField(cmd: String, fieldName: String): String {
-        val after = cmd.substringAfter(fieldName)
-        return after.removePrefix(":").removePrefix("：").trim()
-            .split("内容", "：", ":", "\n").firstOrNull()?.trim() ?: after.take(100).trim()
     }
 
     private fun generateDocument(topic: String) {
