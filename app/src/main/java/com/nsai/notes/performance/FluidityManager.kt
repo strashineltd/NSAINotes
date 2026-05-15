@@ -16,6 +16,7 @@ class FluidityManager @Inject constructor(
 ) {
     private var lastJankTime = 0L
     private var consecutiveJankFrames = 0
+    private var smoothWindowCount = 0
     private var animationBudget = AnimationBudget.FULL
 
     private val _config = MutableStateFlow(FluidityConfig())
@@ -37,30 +38,24 @@ class FluidityManager @Inject constructor(
     fun onFrameMetrics(metrics: FrameMetrics) {
         val now = SystemClock.elapsedRealtime()
 
-        // Require >10% drop rate (30/300 frames) to count as a janky sample,
-        // up from the original 1% threshold (>3/300) which was too aggressive.
-        if (metrics.droppedFrames > 30) {
+        if (metrics.dropRate > 0.10f) {
             consecutiveJankFrames++
-            // Require 4 consecutive janky samples (~20 seconds) before downgrading
-            // animations, up from the original 2 samples (~10 seconds).
-            if (consecutiveJankFrames >= 4) {
+            smoothWindowCount = 0
+            if (consecutiveJankFrames >= 3) {
                 downgradeAnimations(_config.value)
             }
-        } else {
+        } else if (metrics.dropRate < 0.03f) {
             consecutiveJankFrames = 0
-            // Require 8 seconds of sustained smooth frames before upgrading back,
-            // up from the original 2 seconds, to prevent rapid oscillation.
-            if (animationBudget < AnimationBudget.FULL &&
-                now - lastJankTime > 8000L
-            ) {
+            smoothWindowCount++
+            if (animationBudget < AnimationBudget.FULL && smoothWindowCount >= 5) {
                 upgradeAnimations()
             }
+        } else {
+            consecutiveJankFrames = maxOf(0, consecutiveJankFrames - 1)
+            smoothWindowCount = 0
         }
 
-        // Record when the last janky sample occurred (mirrors the >30 threshold above)
-        if (metrics.droppedFrames > 30) {
-            lastJankTime = now
-        }
+        if (metrics.dropRate > 0.10f) lastJankTime = now
     }
 
     private fun prepareForTransition() {
@@ -70,18 +65,32 @@ class FluidityManager @Inject constructor(
     }
 
     fun notifyMemoryLow() {
-        downgradeAnimations(
-            _config.value.copy(
-                animationBudget = AnimationBudget.MINIMAL,
-                skippableContent = true
-            )
+        animationBudget = AnimationBudget.MINIMAL
+        _config.value = _config.value.copy(
+            animationBudget = AnimationBudget.MINIMAL,
+            animationSpeedMultiplier = AnimationBudget.MINIMAL.speedMultiplier,
+            skippableContent = true
         )
     }
 
     fun notifyMemoryRecovered() {
-        if (animationBudget < AnimationBudget.REDUCED) {
-            upgradeAnimations()
+        if (animationBudget == AnimationBudget.MINIMAL) {
+            animationBudget = AnimationBudget.REDUCED
+            _config.value = _config.value.copy(
+                animationBudget = AnimationBudget.REDUCED,
+                animationSpeedMultiplier = AnimationBudget.REDUCED.speedMultiplier,
+                skippableContent = false
+            )
         }
+    }
+
+    fun notifyThermalThrottled() {
+        animationBudget = AnimationBudget.MINIMAL
+        _config.value = _config.value.copy(
+            animationBudget = AnimationBudget.MINIMAL,
+            animationSpeedMultiplier = AnimationBudget.MINIMAL.speedMultiplier,
+            skippableContent = true
+        )
     }
 
     private fun downgradeAnimations(current: FluidityConfig) {
@@ -121,7 +130,6 @@ class FluidityManager @Inject constructor(
     }
 
     val isJanky: Boolean get() = animationBudget <= AnimationBudget.REDUCED
-
     val animationSpeedMultiplier: Float get() = animationBudget.speedMultiplier
 }
 

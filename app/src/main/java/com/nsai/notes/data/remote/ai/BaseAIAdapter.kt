@@ -2,6 +2,7 @@ package com.nsai.notes.data.remote.ai
 
 import com.google.gson.Gson
 import com.nsai.notes.data.local.datastore.SettingsDataStore
+import com.nsai.notes.data.local.security.ApiKeyProvider
 import com.nsai.notes.domain.model.AIMode
 import com.nsai.notes.domain.model.AIProvider
 import com.nsai.notes.domain.model.ChatMessage
@@ -17,7 +18,9 @@ import okhttp3.RequestBody.Companion.toRequestBody
 
 abstract class BaseAIAdapter(
     protected val settingsDataStore: SettingsDataStore,
-    protected val client: OkHttpClient
+    protected val apiKeyProvider: ApiKeyProvider,
+    protected val client: OkHttpClient,
+    protected val gson: Gson
 ) : AIProviderAdapter {
     abstract override val provider: AIProvider
 
@@ -32,8 +35,6 @@ abstract class BaseAIAdapter(
     override suspend fun generateImage(prompt: String, options: AIOptions): AIResponse =
         throw AIException("${provider.displayName}不支持图片生成", AIExceptionType.UNKNOWN)
 
-    protected val gson = Gson()
-
     protected data class ChatRequestBody(
         val model: String,
         val messages: List<Message>,
@@ -41,7 +42,7 @@ abstract class BaseAIAdapter(
         val max_tokens: Int = 2048,
         val stream: Boolean = false
     ) {
-        data class Message(val role: String, val content: Any)  // String or List<ContentPart>
+        data class Message(val role: String, val content: Any)
         data class ContentPart(val type: String, val text: String? = null, val image_url: ImageUrl? = null)
         data class ImageUrl(val url: String)
     }
@@ -73,82 +74,93 @@ abstract class BaseAIAdapter(
         messages: List<ChatMessage>,
         options: AIOptions,
         mode: AIMode = AIMode.QUICK
-    ): AIResponse = withContext(Dispatchers.IO) {
-        val config = settingsDataStore.getProviderConfig(provider)
-        if (!config.isEnabled) throw AIException("${provider.displayName}已禁用", AIExceptionType.AUTH)
-        if (config.apiKey.isBlank()) throw AIException("API Key未配置", AIExceptionType.AUTH)
+    ): AIResponse = apiKeyProvider.withApiKey(provider) { config ->
+        withContext(Dispatchers.IO) {
+            if (!config.isEnabled) throw AIException("${provider.displayName}已禁用", AIExceptionType.AUTH)
+            if (config.apiKey.isBlank()) throw AIException("API Key未配置", AIExceptionType.AUTH)
 
-        val model = provider.getModelForMode(mode) ?: provider.quickModel
-        val temp = if (mode == AIMode.THINK) 0.1f else options.temperature
+            val model = provider.getModelForMode(mode) ?: provider.quickModel
+            val temp = if (mode == AIMode.THINK) 0.1f else options.temperature
 
-        val body = ChatRequestBody(
-            model = model,
-            messages = messages.map { msg ->
-                if (options.imageData != null && msg.role == ChatMessage.Role.USER) {
-                    ChatRequestBody.Message(
-                        role = msg.role.name.lowercase(),
-                        content = listOf(
-                            ChatRequestBody.ContentPart(type = "text", text = msg.content),
-                            ChatRequestBody.ContentPart(type = "image_url", image_url = ChatRequestBody.ImageUrl("data:image/jpeg;base64,${options.imageData}"))
+            val body = ChatRequestBody(
+                model = model,
+                messages = messages.map { msg ->
+                    if (options.imageData != null && msg.role == ChatMessage.Role.USER) {
+                        ChatRequestBody.Message(
+                            role = msg.role.name.lowercase(),
+                            content = listOf(
+                                ChatRequestBody.ContentPart(type = "text", text = msg.content),
+                                ChatRequestBody.ContentPart(type = "image_url", image_url = ChatRequestBody.ImageUrl("data:image/jpeg;base64,${options.imageData}"))
+                            )
                         )
-                    )
-                } else {
-                    ChatRequestBody.Message(role = msg.role.name.lowercase(), content = msg.content)
-                }
-            },
-            temperature = temp,
-            max_tokens = if (mode == AIMode.THINK) 4096 else options.maxTokens
-        )
+                    } else {
+                        ChatRequestBody.Message(role = msg.role.name.lowercase(), content = msg.content)
+                    }
+                },
+                temperature = temp,
+                max_tokens = if (mode == AIMode.THINK) 4096 else options.maxTokens
+            )
 
-        val jsonBody = gson.toJson(body)
-        val url = "${config.baseUrl.trimEnd('/')}/${getEndpointPath()}"
+            val jsonBody = gson.toJson(body)
+            val url = "${config.baseUrl.trimEnd('/')}/${getEndpointPath()}"
 
-        val request = Request.Builder()
-            .url(url).addHeader("Authorization", "Bearer ${config.apiKey}")
-            .addHeader("Content-Type", "application/json")
-            .post(jsonBody.toRequestBody("application/json".toMediaType())).build()
+            val request = Request.Builder()
+                .url(url).addHeader("Authorization", "Bearer ${config.apiKey}")
+                .addHeader("Content-Type", "application/json")
+                .post(jsonBody.toRequestBody("application/json".toMediaType())).build()
 
-        val response = client.newCall(request).execute()
-        val responseBody = response.body?.string()
-        if (!response.isSuccessful) throw parseError(response.code, responseBody)
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string()
+            if (!response.isSuccessful) throw parseError(response.code, responseBody)
 
-        val chatResponse = gson.fromJson(responseBody, ChatResponseBody::class.java)
-        val message = chatResponse.choices?.firstOrNull()?.message
-        val content = message?.content ?: ""
-        val reasoning = message?.reasoning_content
-        val usage = chatResponse.usage?.let { TokenUsage(it.prompt_tokens, it.completion_tokens, it.total_tokens) }
+            val chatResponse = gson.fromJson(responseBody, ChatResponseBody::class.java)
+            val message = chatResponse.choices?.firstOrNull()?.message
+            val content = message?.content ?: ""
+            val reasoning = message?.reasoning_content
+            val usage = chatResponse.usage?.let { TokenUsage(it.prompt_tokens, it.completion_tokens, it.total_tokens) }
 
-        AIResponse(content = content, model = model, reasoning = reasoning, usage = usage)
+            AIResponse(content = content, model = model, reasoning = reasoning, usage = usage)
+        }
     }
 
     protected suspend fun executeImageGeneration(
         prompt: String,
         options: AIOptions
-    ): AIResponse = withContext(Dispatchers.IO) {
-        val config = settingsDataStore.getProviderConfig(provider)
-        if (config.apiKey.isBlank()) throw AIException("API Key未配置", AIExceptionType.AUTH)
+    ): AIResponse = apiKeyProvider.withApiKey(provider) { config ->
+        withContext(Dispatchers.IO) {
+            if (config.apiKey.isBlank()) throw AIException("API Key未配置", AIExceptionType.AUTH)
 
-        val model = provider.imageModel ?: throw AIException("该模型不支持图片生成", AIExceptionType.UNKNOWN)
-        val body = mapOf("model" to model, "prompt" to prompt, "n" to 1, "size" to "1024x1024")
-        val jsonBody = gson.toJson(body)
-        val url = "${config.baseUrl.trimEnd('/')}/${getImageEndpointPath()}"
+            val model = provider.imageModel ?: throw AIException("该模型不支持图片生成", AIExceptionType.UNKNOWN)
+            val body = mapOf("model" to model, "prompt" to prompt, "n" to 1, "size" to "1024x1024")
+            val jsonBody = gson.toJson(body)
+            val url = "${config.baseUrl.trimEnd('/')}/${getImageEndpointPath()}"
 
-        val request = Request.Builder()
-            .url(url).addHeader("Authorization", "Bearer ${config.apiKey}")
-            .addHeader("Content-Type", "application/json")
-            .post(jsonBody.toRequestBody("application/json".toMediaType())).build()
+            val request = Request.Builder()
+                .url(url).addHeader("Authorization", "Bearer ${config.apiKey}")
+                .addHeader("Content-Type", "application/json")
+                .post(jsonBody.toRequestBody("application/json".toMediaType())).build()
 
-        val response = client.newCall(request).execute()
-        val responseBody = response.body?.string()
-        if (!response.isSuccessful) throw parseError(response.code, responseBody)
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string()
+            if (!response.isSuccessful) throw parseError(response.code, responseBody)
 
-        val imageResponse = gson.fromJson(responseBody, ChatResponseBody::class.java)
-        val imageUrl = imageResponse.data?.firstOrNull()?.url ?: ""
-        AIResponse(content = imageUrl, model = model)
+            val imageResponse = gson.fromJson(responseBody, ChatResponseBody::class.java)
+            val imageUrl = imageResponse.data?.firstOrNull()?.url ?: ""
+            AIResponse(content = imageUrl, model = model)
+        }
     }
 
     protected open fun parseError(code: Int, body: String?): AIException {
         return when (code) {
+            400 -> {
+                val detail = try {
+                    val errorBody = gson.fromJson(body ?: "", Map::class.java)
+                    (errorBody["error"] as? Map<*, *>)?.get("message") as? String
+                        ?: errorBody["message"] as? String
+                        ?: ""
+                } catch (_: Exception) { "" }
+                AIException(if (detail.isNotBlank()) "请求参数错误: $detail" else "请求参数错误", AIExceptionType.UNKNOWN)
+            }
             401 -> AIException("API Key无效", AIExceptionType.AUTH)
             429 -> AIException("请求过频，稍后重试", AIExceptionType.RATE_LIMIT)
             500, 502, 503 -> AIException("AI服务暂不可用", AIExceptionType.SERVER)

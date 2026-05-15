@@ -1,60 +1,47 @@
 package com.nsai.notes.data.local.vector
 
-import android.content.ContentValues
-import com.nsai.notes.data.local.db.AppDatabase
+import com.nsai.notes.data.local.db.dao.ChunkDao
 import com.nsai.notes.data.local.embedding.EmbeddingEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.ByteBuffer
-class VectorStore(
-    private val db: AppDatabase
-) {
+import javax.inject.Inject
+import javax.inject.Singleton
 
+@Singleton
+class VectorStore @Inject constructor(
+    private val chunkDao: ChunkDao
+) {
     suspend fun insert(chunk: ChunkEntity) = withContext(Dispatchers.IO) {
-        db.openHelper.writableDatabase.insert("chunks", 0, chunk.toContentValues())
+        chunkDao.insert(chunk)
     }
 
     suspend fun insertBatch(chunks: List<ChunkEntity>) = withContext(Dispatchers.IO) {
-        val writableDb = db.openHelper.writableDatabase
-        writableDb.beginTransaction()
-        try {
-            chunks.forEach { writableDb.insert("chunks", 0, it.toContentValues()) }
-            writableDb.setTransactionSuccessful()
-        } finally {
-            writableDb.endTransaction()
-        }
+        chunkDao.insertBatch(chunks)
     }
 
     suspend fun deleteByNoteId(noteId: Long) = withContext(Dispatchers.IO) {
-        db.openHelper.writableDatabase.delete("chunks", "note_id = ?", arrayOf(noteId.toString()))
+        chunkDao.deleteByNoteId(noteId)
     }
 
     suspend fun deleteAll() = withContext(Dispatchers.IO) {
-        db.openHelper.writableDatabase.delete("chunks", null, null)
+        chunkDao.deleteAll()
     }
 
     suspend fun getAll(): List<ChunkEntity> = withContext(Dispatchers.IO) {
-        val cursor = db.openHelper.readableDatabase.query("SELECT * FROM chunks")
-        val results = mutableListOf<ChunkEntity>()
-        try {
-            while (cursor.moveToNext()) {
-                results.add(ChunkEntity(
-                    id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
-                    noteId = cursor.getLong(cursor.getColumnIndexOrThrow("note_id")),
-                    chunkIndex = cursor.getInt(cursor.getColumnIndexOrThrow("chunk_index")),
-                    content = cursor.getString(cursor.getColumnIndexOrThrow("content")),
-                    embedding = cursor.getBlob(cursor.getColumnIndexOrThrow("embedding")),
-                    createdAt = cursor.getLong(cursor.getColumnIndexOrThrow("created_at"))
-                ))
-            }
-        } finally {
-            cursor.close()
-        }
-        results
+        chunkDao.getRecent(limit = MAX_SEARCH_CANDIDATES)
     }
 
-    suspend fun search(queryEmbedding: FloatArray, topK: Int = 5, minSimilarity: Float = 0.6f): List<Triple<Long, String, Float>> = withContext(Dispatchers.IO) {
-        val all = getAll()
+    /**
+     * Search chunks by cosine similarity against query embedding.
+     * Uses brute-force search capped at MAX_SEARCH_CANDIDATES chunks to avoid OOM.
+     */
+    suspend fun search(
+        queryEmbedding: FloatArray,
+        topK: Int = 5,
+        minSimilarity: Float = 0.6f
+    ): List<Triple<Long, String, Float>> = withContext(Dispatchers.IO) {
+        val all = chunkDao.getRecent(limit = MAX_SEARCH_CANDIDATES)
         val candidates = all.map { Pair("${it.noteId}:${it.content}", toFloatArray(it.embedding)) }
         bruteForceSearch(queryEmbedding, candidates, topK, minSimilarity).map { (key, score) ->
             val colonIndex = key.indexOf(':')
@@ -65,26 +52,13 @@ class VectorStore(
     }
 
     suspend fun count(): Int = withContext(Dispatchers.IO) {
-        val cursor = db.openHelper.readableDatabase.query("SELECT COUNT(*) FROM chunks")
-        try {
-            cursor.moveToFirst()
-            cursor.getInt(0)
-        } finally {
-            cursor.close()
-        }
-    }
-
-    private fun ChunkEntity.toContentValues(): ContentValues {
-        return ContentValues().apply {
-            put("note_id", noteId)
-            put("chunk_index", chunkIndex)
-            put("content", content)
-            put("embedding", embedding)
-            put("created_at", createdAt)
-        }
+        chunkDao.count()
     }
 
     companion object {
+        /** Maximum number of chunks loaded for search to control memory usage. */
+        const val MAX_SEARCH_CANDIDATES = 2000
+
         fun bruteForceSearch(
             query: FloatArray,
             candidates: List<Pair<String, FloatArray>>,

@@ -2,13 +2,13 @@ package com.nsai.notes.data.remote.search
 
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
+import com.nsai.notes.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import java.util.Collections
 import java.util.LinkedHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,28 +22,25 @@ data class SearchResult(
 
 @Singleton
 class WebSearchService @Inject constructor(
-    private val client: OkHttpClient
+    private val client: OkHttpClient,
+    private val gson: Gson
 ) {
-
-    private val gson = Gson()
     private val cacheMutex = Mutex()
 
-    private val searchCache = Collections.synchronizedMap(object : LinkedHashMap<String, List<SearchResult>>(
+    private val searchCache = object : LinkedHashMap<String, List<SearchResult>>(
         16, 0.75f, true
     ) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<SearchResult>>?): Boolean {
             return size > 32
         }
-    })
+    }
 
-    suspend fun search(query: String): List<SearchResult> {
+    suspend fun search(query: String): List<SearchResult> = cacheMutex.withLock {
         val normalized = query.trim().lowercase()
-        cacheMutex.withLock {
-            searchCache[normalized]?.let { return it }
-        }
+        searchCache[normalized]?.let { return@withLock it }
         val results = executeSearch(query)
-        cacheMutex.withLock { searchCache[normalized] = results }
-        return results
+        searchCache[normalized] = results
+        results
     }
 
     private suspend fun executeSearch(query: String): List<SearchResult> = withContext(Dispatchers.IO) {
@@ -52,7 +49,7 @@ class WebSearchService @Inject constructor(
             val url = "https://api.duckduckgo.com/?q=$encodedQuery&format=json&no_html=1&skip_disambig=1"
 
             val request = Request.Builder().url(url)
-                .addHeader("User-Agent", "NSAINotes-Android/2.0")
+                .addHeader("User-Agent", "NSAINotes-Android/${BuildConfig.VERSION_NAME}")
                 .build()
 
             val response = client.newCall(request).execute()

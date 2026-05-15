@@ -18,17 +18,18 @@ import javax.inject.Singleton
 class ExtractMemoriesUseCase @Inject constructor(
     private val aiService: AIService,
     private val memoryDao: MemoryDao,
-    private val embeddingEngine: EmbeddingEngine
+    private val embeddingEngine: EmbeddingEngine,
+    private val memoryExtractor: MemoryExtractor
 ) {
     suspend fun extract(conversationText: String, provider: AIProvider) = withContext(Dispatchers.IO) {
         if (!embeddingEngine.isInitialized) return@withContext
-        val prompt = MemoryExtractor.buildExtractionPrompt(conversationText)
+        val prompt = memoryExtractor.buildExtractionPrompt(conversationText)
         val response = aiService.chat(
             provider = provider,
             messages = listOf(ChatMessage(ChatMessage.Role.USER, prompt)),
             options = AIOptions(temperature = 0.2f, maxTokens = 1024)
         )
-        val memories = MemoryExtractor.parseMemoriesJson(response.content)
+        val memories = memoryExtractor.parseMemoriesJson(response.content)
         memories.forEach { memory ->
             val embedding = embeddingEngine.embed(memory.content)
             memoryDao.insert(MemoryEntity(

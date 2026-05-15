@@ -34,8 +34,6 @@ class KeyStoreManager @Inject constructor() {
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setKeySize(256)
-            .setUserAuthenticationRequired(true)
-            .setUserAuthenticationValidityDurationSeconds(30)
             .build()
         keyGenerator.init(spec)
         return keyGenerator.generateKey()
@@ -56,6 +54,12 @@ class KeyStoreManager @Inject constructor() {
         val spec = GCMParameterSpec(128, iv)
         cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), spec)
         return String(cipher.doFinal(data), Charsets.UTF_8)
+    }
+
+    private fun deleteKey() {
+        val keyStore = KeyStore.getInstance(androidKeyStore)
+        keyStore.load(null)
+        keyStore.deleteEntry(keyStoreAlias)
     }
 
     fun encryptToString(plaintext: String): String =

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nsai.notes.BuildConfig
 import com.nsai.notes.data.local.datastore.SettingsDataStore
+import com.nsai.notes.data.local.license.LicenseManager
 import com.nsai.notes.data.remote.NoUpdateException
 import com.nsai.notes.data.remote.UpdateChecker
 import com.nsai.notes.domain.model.ThemeMode
@@ -21,7 +22,10 @@ data class SettingsUiState(
     val appVersion: String = BuildConfig.VERSION_NAME,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val fontScale: Float = 1.0f,
-    val updateDialog: UpdateDialogState = UpdateDialogState.Hidden
+    val updateDialog: UpdateDialogState = UpdateDialogState.Hidden,
+    val licenseActive: Boolean = false,
+    val licenseProductName: String? = null,
+    val licenseExpireDays: Int = 0
 )
 
 @Stable
@@ -45,7 +49,8 @@ sealed class SettingsEvent {
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
-    private val updateChecker: UpdateChecker
+    private val updateChecker: UpdateChecker,
+    private val licenseManager: LicenseManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -54,6 +59,15 @@ class SettingsViewModel @Inject constructor(
     init {
         loadThemeMode()
         loadFontScale()
+        loadLicenseState()
+    }
+
+    private fun loadLicenseState() {
+        _uiState.value = _uiState.value.copy(
+            licenseActive = licenseManager.isActive.value,
+            licenseProductName = licenseManager.productName.value,
+            licenseExpireDays = licenseManager.getExpireDays()
+        )
     }
 
     fun onEvent(event: SettingsEvent) {

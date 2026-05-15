@@ -12,8 +12,8 @@ class ApiKeyProvider @Inject constructor(
     private val keyStoreManager: KeyStoreManager
 ) {
     /**
-     * Use-pattern: decrypt API key, execute block, then discard reference.
-     * Key exists in memory only during block execution.
+     * Decrypts the API key, executes [block] with a config containing the plaintext key,
+     * then discards the reference. The plaintext key exists in memory only during block execution.
      */
     suspend fun <T> withApiKey(
         provider: AIProvider,
@@ -23,7 +23,8 @@ class ApiKeyProvider @Inject constructor(
         return block(config)
     }
 
+    /** Returns config metadata without the API key. Safe for UI display. */
     suspend fun getConfigSafe(provider: AIProvider): AIProviderConfig {
-        return settingsDataStore.getProviderConfig(provider)
+        return settingsDataStore.getProviderConfigSafe(provider)
     }
 }

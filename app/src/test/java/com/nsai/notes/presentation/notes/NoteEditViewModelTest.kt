@@ -32,8 +32,13 @@ class NoteEditViewModelTest {
         createNoteUseCase = mock()
         updateNoteUseCase = mock()
         getAllTagsUseCase = mock()
+        val extractTextUseCase = mock(com.nsai.notes.domain.multimodal.ExtractTextUseCase::class.java)
+        val describeImageUseCase = mock(com.nsai.notes.domain.multimodal.DescribeImageUseCase::class.java)
+        val settingsDataStore = mock(com.nsai.notes.data.local.datastore.SettingsDataStore::class.java)
+        val indexNotesUseCase = dagger.Lazy { mock(com.nsai.notes.domain.rag.IndexNotesUseCase::class.java) }
         viewModel = NoteEditViewModel(
-            getNoteUseCase, createNoteUseCase, updateNoteUseCase, getAllTagsUseCase
+            getNoteUseCase, createNoteUseCase, updateNoteUseCase, getAllTagsUseCase,
+            extractTextUseCase, describeImageUseCase, settingsDataStore, indexNotesUseCase
         )
     }
 

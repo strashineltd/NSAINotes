@@ -54,9 +54,13 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.TravelExplore
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -95,9 +99,14 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.nsai.notes.domain.model.AIMode
+import com.nsai.notes.domain.model.AIProvider
 import com.nsai.notes.domain.model.ChatMessage
 import com.nsai.notes.domain.model.Conversation
 import com.nsai.notes.domain.model.Note
+import com.nsai.notes.presentation.ai.components.AIReplyActions
+import com.nsai.notes.presentation.ai.components.AgentStepCard
+import com.nsai.notes.presentation.ai.components.WorkspaceTab
+import com.nsai.notes.presentation.ai.components.WorkspaceTabs
 import com.nsai.notes.presentation.theme.LocalAnimationConfig
 import com.nsai.notes.presentation.voice.VoiceInputDialog
 
@@ -120,6 +129,7 @@ fun AIHomeScreen(
     onNavigateToNoteChat: (Long) -> Unit,
     onNavigateToModelSettings: () -> Unit,
     onNavigateToMCPSkill: () -> Unit = {},
+    onNavigateToActivation: () -> Unit = {},
     viewModel: AIHomeViewModel = hiltViewModel()
 ) {
     val tokens = LocalAnimationConfig.current
@@ -131,6 +141,8 @@ fun AIHomeScreen(
     var showBrowser by remember { mutableStateOf(false) }
     var browserUrl by remember { mutableStateOf("https://www.google.com") }
     var showMoreSheet by remember { mutableStateOf(false) }
+    var showModelMenu by remember { mutableStateOf(false) }
+    var showUpgradeDialog by remember { mutableStateOf(false) }
     val hasConversation = uiState.messages.size > 1
 
     LaunchedEffect(uiState.messages.size) {
@@ -143,13 +155,6 @@ fun AIHomeScreen(
     if (showVoiceDialog) VoiceInputDialog(
         onTextResult = { viewModel.onEvent(AIHomeEvent.UpdateInput(it)); viewModel.onEvent(AIHomeEvent.SendMessage) },
         onDismiss = { showVoiceDialog = false }
-    )
-    if (uiState.showHistory) ConversationHistoryPanel(
-        conversations = uiState.conversationHistory, currentId = uiState.currentConversationId,
-        onSelect = { viewModel.onEvent(AIHomeEvent.LoadConversation(it)) },
-        onDelete = { viewModel.onEvent(AIHomeEvent.DeleteConversation(it)) },
-        onNew = { viewModel.onEvent(AIHomeEvent.NewConversation) },
-        onDismiss = { viewModel.onEvent(AIHomeEvent.ToggleHistory) }
     )
 
     // "+" more modes bottom sheet
@@ -206,18 +211,45 @@ fun AIHomeScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("NSAI AI", style = MaterialTheme.typography.titleLarge)
-                        Spacer(Modifier.width(10.dp))
-                        Card(
-                            shape = RoundedCornerShape(8.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f))
-                        ) {
-                            Text(
-                                uiState.selectedProvider.displayName,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                        Spacer(Modifier.width(8.dp))
+                        Box {
+                            Card(
+                                modifier = Modifier.clickable { showModelMenu = true },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f))
+                            ) {
+                                Row(Modifier.padding(horizontal = 10.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Box(Modifier.size(8.dp).clip(CircleShape).background(
+                                        if (uiState.selectedProvider.supportsVision) Color(0xFF4CAF50) else Color(0xFFBDBDBD)))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(uiState.selectedProvider.displayName,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                                    Spacer(Modifier.width(3.dp))
+                                    Icon(Icons.Default.AutoAwesome, null, Modifier.size(10.dp),
+                                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+                                }
+                            }
+                            DropdownMenu(expanded = showModelMenu, onDismissRequest = { showModelMenu = false }) {
+                                AIProvider.entries.forEach { provider ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(provider.displayName, style = MaterialTheme.typography.bodyMedium)
+                                                if (provider == uiState.selectedProvider) {
+                                                    Spacer(Modifier.width(8.dp))
+                                                    Text("✓", color = MaterialTheme.colorScheme.primary)
+                                                }
+                                            }
+                                        },
+                                        onClick = { showModelMenu = false; viewModel.onEvent(AIHomeEvent.SelectProvider(provider)) },
+                                        leadingIcon = {
+                                            val dotColor = if (provider.supportsVision) Color(0xFF4CAF50) else Color(0xFFBDBDBD)
+                                            Box(Modifier.size(12.dp).clip(CircleShape).background(dotColor))
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 },
@@ -248,7 +280,7 @@ fun AIHomeScreen(
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 AnimatedContent(
                     targetState = hasConversation || uiState.isLoading,
-                    transitionSpec = { fadeIn(tween(tokens.normalDuration)) togetherWith fadeOut(tween(tokens.fastDuration)) },
+                    transitionSpec = { fadeIn(tween(120)) togetherWith fadeOut(tween(100)) },
                     label = "content"
                 ) { showChat ->
                     if (showChat) {
@@ -256,7 +288,9 @@ fun AIHomeScreen(
                             messages = uiState.messages, isLoading = uiState.isLoading,
                             listState = chatListState, searchResults = uiState.searchResults,
                             generatedImage = uiState.generatedImage,
-                            onUrlClick = { browserUrl = it; showBrowser = true }
+                            onUrlClick = { browserUrl = it; showBrowser = true },
+                            onSaveAsNote = { content -> viewModel.onEvent(AIHomeEvent.SaveAsNote(content)) },
+                            onRetry = { viewModel.onEvent(AIHomeEvent.SendMessage) }
                         )
                     } else {
                         WelcomeView(
@@ -267,52 +301,100 @@ fun AIHomeScreen(
                 }
             }
 
-            // Active mode indicator
-            val activeLabel = activeModeLabel(uiState)
-            if (activeLabel.isNotEmpty()) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(activeModeIcon(uiState), null, Modifier.size(12.dp), tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(4.dp))
-                    Text(activeLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            // Workspace tabs (v1.1)
+            val currentTab = when {
+                uiState.isAgentMode -> WorkspaceTab.AGENT
+                uiState.isRagMode -> WorkspaceTab.RAG
+                else -> WorkspaceTab.CHAT
+            }
+            WorkspaceTabs(currentTab) { tab ->
+                when (tab) {
+                    WorkspaceTab.CHAT -> viewModel.onEvent(AIHomeEvent.SelectMode(AIMode.QUICK))
+                    WorkspaceTab.AGENT -> viewModel.onEvent(AIHomeEvent.ToggleAgentMode)
+                    WorkspaceTab.RAG -> viewModel.onEvent(AIHomeEvent.ToggleRagMode)
                 }
             }
 
-            // Mode selector: 3 core chips + "+" more
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                ModeChip(Icons.Default.Speed, "快速",
-                    selected = uiState.currentMode == AIMode.QUICK && !uiState.isAgentMode && !uiState.isDocGenMode && !uiState.isWebSearchMode && !uiState.isRagMode
-                ) { viewModel.onEvent(AIHomeEvent.SelectMode(AIMode.QUICK)) }
-
-                ModeChip(Icons.Default.Psychology, "思考",
-                    selected = uiState.currentMode == AIMode.THINK && !uiState.isAgentMode && !uiState.isDocGenMode && !uiState.isWebSearchMode && !uiState.isRagMode
-                ) { viewModel.onEvent(AIHomeEvent.SelectMode(AIMode.THINK)) }
-
-                ModeChip(Icons.Default.TravelExplore, "联网",
-                    selected = uiState.isWebSearchMode
-                ) { viewModel.onEvent(AIHomeEvent.ToggleWebSearch) }
-
-                val hasMoreActive = uiState.isAgentMode || uiState.isRagMode || uiState.currentMode == AIMode.IMAGE || uiState.isDocGenMode
-                ModeChip(Icons.Default.MoreHoriz, if (hasMoreActive) activeMoreLabel(uiState) else "更多",
-                    selected = hasMoreActive
-                ) { showMoreSheet = true }
+            // "+" more button + context inline
+            Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 1.dp),
+                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                val ctxLabel = contextLabel(uiState)
+                if (ctxLabel.isNotEmpty()) {
+                    Text(ctxLabel, style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else { Spacer(Modifier.width(1.dp)) }
+                TextButton(onClick = { showMoreSheet = true },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
+                    Icon(Icons.Default.MoreHoriz, null, Modifier.size(14.dp))
+                    Spacer(Modifier.width(2.dp))
+                    Text("更多", style = MaterialTheme.typography.labelSmall)
+                }
             }
 
             // Input bar
+            val isImageMode = uiState.currentMode == AIMode.IMAGE
             InputBar(
-                text = if (uiState.currentMode == AIMode.IMAGE) uiState.imagePrompt else uiState.inputText,
+                text = if (isImageMode) uiState.imagePrompt else uiState.inputText,
                 isLoading = uiState.isLoading,
-                onTextChange = { if (uiState.currentMode == AIMode.IMAGE) viewModel.onEvent(AIHomeEvent.UpdateImagePrompt(it)) else viewModel.onEvent(AIHomeEvent.UpdateInput(it)) },
-                onSend = { if (uiState.currentMode == AIMode.IMAGE) viewModel.onEvent(AIHomeEvent.GenerateImage) else viewModel.onEvent(AIHomeEvent.SendMessage) },
+                placeholder = when (currentTab) {
+                    WorkspaceTab.AGENT -> "输入任务指令..."
+                    WorkspaceTab.RAG -> "输入问题，从笔记中检索..."
+                    else -> if (isImageMode) "输入图片描述..." else "输入消息..."
+                },
+                onTextChange = { if (isImageMode) viewModel.onEvent(AIHomeEvent.UpdateImagePrompt(it)) else viewModel.onEvent(AIHomeEvent.UpdateInput(it)) },
+                onSend = {
+                    // License check
+                    if (!viewModel.isLicenseActive()) {
+                        showUpgradeDialog = true
+                    } else if (isImageMode) {
+                        viewModel.onEvent(AIHomeEvent.GenerateImage)
+                    } else {
+                        viewModel.onEvent(AIHomeEvent.SendMessage)
+                    }
+                },
                 onVoice = { showVoiceDialog = true },
                 onBrowser = { browserUrl = ""; showBrowser = true }
             )
         }
+    }
+
+    // History panel (after Scaffold for z-order)
+    if (uiState.showHistory) ConversationHistoryPanel(
+        conversations = uiState.conversationHistory, currentId = uiState.currentConversationId,
+        onSelect = { viewModel.onEvent(AIHomeEvent.LoadConversation(it)) },
+        onDelete = { viewModel.onEvent(AIHomeEvent.DeleteConversation(it)) },
+        onNew = { viewModel.onEvent(AIHomeEvent.NewConversation) },
+        onDismiss = { viewModel.onEvent(AIHomeEvent.ToggleHistory) }
+    )
+
+    // Upgrade dialog
+    if (showUpgradeDialog) {
+        AlertDialog(
+            onDismissRequest = { showUpgradeDialog = false },
+            title = { Text("解锁高级用户体验", style = MaterialTheme.typography.titleLarge) },
+            text = {
+                Column {
+                    Text("AI功能需要激活后才能使用")
+                    Spacer(Modifier.height(8.dp))
+                    Text("💬 AI智能对话", style = MaterialTheme.typography.bodyMedium)
+                    Text("🤖 Agent多步推理", style = MaterialTheme.typography.bodyMedium)
+                    Text("📚 知识库检索", style = MaterialTheme.typography.bodyMedium)
+                    Text("🎨 AI图片生成", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(8.dp))
+                    Text("仅需 ¥5/年 · 绑定设备", style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showUpgradeDialog = false
+                    onNavigateToActivation()
+                }) { Text("立即激活") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUpgradeDialog = false }) { Text("稍后") }
+            }
+        )
     }
 
     // Browser overlay
@@ -333,32 +415,14 @@ fun AIHomeScreen(
     )
 }
 
-private fun activeModeLabel(state: AIHomeUiState): String = when {
-    state.isAgentMode -> "当前: Agent"
-    state.isRagMode -> "当前: 知识库搜索"
-    state.isDocGenMode -> "当前: 文档生成"
-    state.isWebSearchMode -> "当前: 联网搜索"
-    state.currentMode == AIMode.THINK -> "当前: 思考模式"
-    state.currentMode == AIMode.IMAGE -> "当前: 图片生成"
-    else -> ""
-}
-
-private fun activeModeIcon(state: AIHomeUiState): ImageVector = when {
-    state.isAgentMode -> Icons.Default.AutoAwesome
-    state.isRagMode -> Icons.Default.Search
-    state.isDocGenMode -> Icons.Default.Description
-    state.isWebSearchMode -> Icons.Default.TravelExplore
-    state.currentMode == AIMode.THINK -> Icons.Default.Psychology
-    state.currentMode == AIMode.IMAGE -> Icons.Default.Image
-    else -> Icons.Default.Speed
-}
-
-private fun activeMoreLabel(state: AIHomeUiState): String = when {
-    state.isAgentMode -> "Agent"
-    state.isRagMode -> "知识库"
-    state.currentMode == AIMode.IMAGE -> "图片"
-    state.isDocGenMode -> "文档"
-    else -> "更多"
+private fun contextLabel(state: AIHomeUiState): String = buildString {
+    val provider = state.selectedProvider.displayName
+    append("$provider")
+    if (state.isWebSearchMode) append(" · 联网搜索")
+    if (state.currentMode == AIMode.THINK) append(" · 思考模式")
+    if (state.currentMode == AIMode.IMAGE) append(" · 图片生成")
+    if (state.isAgentMode) append(" · 工具: 8个可用")
+    if (state.isRagMode) append(" · 知识库检索")
 }
 
 // ─── Mode Chip ───
@@ -451,14 +515,20 @@ private fun ChatView(
     listState: androidx.compose.foundation.lazy.LazyListState,
     searchResults: List<com.nsai.notes.data.remote.search.SearchResult>,
     generatedImage: String?,
-    onUrlClick: (String) -> Unit
+    onUrlClick: (String) -> Unit,
+    onSaveAsNote: (String) -> Unit = {},
+    onRetry: () -> Unit = {}
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(), state = listState,
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        items(messages, key = { it.timestamp }) { msg -> ChatBubble(msg, onUrlClick) }
+        items(messages, key = { it.timestamp }) { msg ->
+            ChatBubble(msg, onUrlClick,
+                onSaveAsNote = { content -> onSaveAsNote(content) },
+                onRetry = { onRetry() })
+        }
         if (generatedImage != null) {
             item(key = "generated_image") {
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
@@ -505,7 +575,7 @@ private fun ThinkingDots(modifier: Modifier = Modifier) {
 
 // ─── Chat Bubble ───
 @Composable
-private fun ChatBubble(message: ChatMessage, onUrlClick: (String) -> Unit = {}) {
+private fun ChatBubble(message: ChatMessage, onUrlClick: (String) -> Unit = {}, onSaveAsNote: (String) -> Unit = {}, onRetry: () -> Unit = {}) {
     val tokens = LocalAnimationConfig.current
     val isUser = message.role == ChatMessage.Role.USER
     val alignment = if (isUser) Alignment.End else Alignment.Start
@@ -555,6 +625,14 @@ private fun ChatBubble(message: ChatMessage, onUrlClick: (String) -> Unit = {}) 
                 )
             }
         }
+        // Reply actions for AI messages
+        if (!isUser && message.content.isNotBlank()) {
+            AIReplyActions(
+                content = message.content,
+                onSaveAsNote = { onSaveAsNote(message.content) },
+                onRetry = onRetry
+            )
+        }
     }
 }
 
@@ -562,7 +640,8 @@ private fun ChatBubble(message: ChatMessage, onUrlClick: (String) -> Unit = {}) 
 @Composable
 private fun InputBar(
     text: String, isLoading: Boolean, onTextChange: (String) -> Unit,
-    onSend: () -> Unit, onVoice: () -> Unit, onBrowser: () -> Unit
+    onSend: () -> Unit, onVoice: () -> Unit, onBrowser: () -> Unit,
+    placeholder: String = "输入消息..."
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -576,7 +655,7 @@ private fun InputBar(
         ) {
             OutlinedTextField(
                 value = text, onValueChange = onTextChange, modifier = Modifier.weight(1f),
-                placeholder = { Text("输入消息...", style = MaterialTheme.typography.bodyMedium) },
+                placeholder = { Text(placeholder, style = MaterialTheme.typography.bodyMedium) },
                 singleLine = true, shape = RoundedCornerShape(22.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent,

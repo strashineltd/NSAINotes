@@ -14,10 +14,10 @@ import javax.inject.Singleton
 
 @Singleton
 class ConversationRepositoryImpl @Inject constructor(
-    private val dao: ConversationDao
+    private val dao: ConversationDao,
+    private val gson: Gson
 ) : ConversationRepository {
 
-    private val gson = Gson()
     private val type = object : TypeToken<List<ChatMessage>>() {}.type
 
     override fun getAll(): Flow<List<Conversation>> = dao.getAll().map { entities ->
@@ -39,8 +39,8 @@ class ConversationRepositoryImpl @Inject constructor(
         return if (conversation.id == 0L) {
             dao.insert(entity)
         } else {
-            dao.update(entity)
-            conversation.id
+            val rowsUpdated = dao.update(entity)
+            if (rowsUpdated > 0) conversation.id else dao.insert(entity.copy(id = 0))
         }
     }
 

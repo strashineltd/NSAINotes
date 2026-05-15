@@ -9,6 +9,7 @@ import com.nsai.notes.data.local.db.MIGRATION_3_4
 import com.nsai.notes.data.local.db.MIGRATION_4_5
 import com.nsai.notes.data.local.db.MIGRATION_5_6
 import com.nsai.notes.data.local.db.dao.ConversationDao
+import com.nsai.notes.data.local.db.dao.ChunkDao
 import com.nsai.notes.data.local.db.dao.NoteDao
 import com.nsai.notes.data.local.db.dao.TagDao
 import com.nsai.notes.data.local.memory.MemoryDao
@@ -48,4 +49,7 @@ object DatabaseModule {
 
     @Provides
     fun provideMemoryDao(database: AppDatabase): MemoryDao = database.memoryDao()
+
+    @Provides
+    fun provideChunkDao(database: AppDatabase): ChunkDao = database.chunkDao()
 }

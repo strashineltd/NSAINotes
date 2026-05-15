@@ -8,10 +8,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.nio.LongBuffer
+
 class EmbeddingEngine {
 
     private var session: OrtSession? = null
     private val env = OrtEnvironment.getEnvironment()
+    private var tokenizer: BertTokenizer? = null
 
     suspend fun initialize(context: Context) = withContext(Dispatchers.IO) {
         if (session != null) return@withContext
@@ -20,11 +22,16 @@ class EmbeddingEngine {
             copyModelFromAssets(context, modelFile)
         }
         session = env.createSession(modelFile.absolutePath)
+
+        val tok = BertTokenizer(context)
+        tok.initialize()
+        tokenizer = tok
     }
 
     suspend fun embed(text: String): FloatArray = withContext(Dispatchers.IO) {
         val s = session ?: throw IllegalStateException("EmbeddingEngine not initialized")
-        val tokens = tokenize(text)
+        val tok = tokenizer ?: throw IllegalStateException("EmbeddingEngine tokenizer not initialized")
+        val tokens = tok.tokenize(text)
         val inputTensor = OnnxTensor.createTensor(env, LongBuffer.wrap(tokens), longArrayOf(1, tokens.size.toLong()))
         val ortResult = s.run(mapOf("input_ids" to inputTensor))
         val output = ortResult.first().value as Array<FloatArray>
@@ -34,24 +41,6 @@ class EmbeddingEngine {
     }
 
     val isInitialized: Boolean get() = session != null
-
-    private fun tokenize(text: String): LongArray {
-        // BERT tokenizer: pad/truncate to 128 tokens using basic whitespace+punct split
-        // Full WordPiece tokenizer requires vocab file; this basic version handles
-        // ASCII text and CJK characters for the initial implementation.
-        val maxLen = 128
-        val result = LongArray(maxLen) { 0L }
-        // Map each character to a simple hash-based token ID (101 + index % vocabRange)
-        val chars = text.take(500).toCharArray()
-        var pos = 0
-        result[pos++] = 101L // [CLS]
-        for (c in chars) {
-            if (pos >= maxLen - 1) break
-            result[pos++] = (101L + (c.code and 0x7F)) // simple mapping for placeholder
-        }
-        result[pos] = 102L // [SEP]
-        return result
-    }
 
     private fun copyModelFromAssets(context: Context, dest: File) {
         dest.parentFile?.mkdirs()
@@ -73,7 +62,7 @@ class EmbeddingEngine {
                 normB += b[i] * b[i]
             }
             val denom = kotlin.math.sqrt(normA) * kotlin.math.sqrt(normB)
-            return if (denom == 0f) 0f else dot / denom
+            return if (denom == 0f) 0f else (dot / denom).coerceIn(-1f, 1f)
         }
     }
 }

@@ -79,7 +79,6 @@ fun AIModelSettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) {
-        delay(200) // wait for spring enter to settle
         viewModel.load()
     }
 
@@ -100,58 +99,38 @@ fun AIModelSettingsScreen(
             )
         }
     ) { padding ->
-        val hasConfigs = uiState.providerConfigs.isNotEmpty()
-        AnimatedContent(
-            targetState = hasConfigs,
-            transitionSpec = {
-                fadeIn(tween(300)) togetherWith fadeOut(tween(200))
-            },
-            label = "settingsBody"
-        ) { loaded ->
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                item(key = "header") {
-                    Spacer(Modifier.height(4.dp))
-                    val enabledCount = uiState.providerConfigs.count { it.isEnabled }
-                    Text(
-                        if (loaded) "已启用 $enabledCount / ${uiState.providerConfigs.size} 个模型"
-                        else "正在加载模型配置...",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                    )
-                    Spacer(Modifier.height(8.dp))
-                }
-
-                if (loaded) {
-                    itemsIndexed(
-                        items = uiState.providerConfigs,
-                        key = { _, config -> config.provider.name }
-                    ) { index, config ->
-                        StaggeredCardItem(
-                            index = index,
-                            config = config,
-                            testResult = uiState.testResults[config.provider],
-                            onApiKeyChange = { viewModel.onEvent(AIModelSettingsEvent.UpdateApiKey(config.provider, it)) },
-                            onBaseUrlChange = { viewModel.onEvent(AIModelSettingsEvent.UpdateBaseUrl(config.provider, it)) },
-                            onToggleEnabled = { viewModel.onEvent(AIModelSettingsEvent.ToggleEnabled(config.provider)) },
-                            onTestConnection = { viewModel.onEvent(AIModelSettingsEvent.TestConnection(config.provider)) }
-                        )
-                    }
-                }
-
-                item(key = "browser_info") {
-                    BrowserInfoCard()
-                }
-
-                item(key = "bottom_spacer") {
-                    Spacer(Modifier.height(16.dp))
-                }
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            item(key = "header") {
+                Spacer(Modifier.height(4.dp))
+                val enabledCount = uiState.providerConfigs.count { it.isEnabled }
+                Text("已启用 $enabledCount / ${uiState.providerConfigs.size} 个模型",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                Spacer(Modifier.height(8.dp))
             }
+
+            itemsIndexed(
+                items = uiState.providerConfigs,
+                key = { _, config -> config.provider.name }
+            ) { index, config ->
+                ExpandableModelCard(
+                    config = config,
+                    testResult = uiState.testResults[config.provider],
+                    onApiKeyChange = { viewModel.onEvent(AIModelSettingsEvent.UpdateApiKey(config.provider, it)) },
+                    onBaseUrlChange = { viewModel.onEvent(AIModelSettingsEvent.UpdateBaseUrl(config.provider, it)) },
+                    onToggleEnabled = { viewModel.onEvent(AIModelSettingsEvent.ToggleEnabled(config.provider)) },
+                    onTestConnection = { viewModel.onEvent(AIModelSettingsEvent.TestConnection(config.provider)) }
+                )
+            }
+
+            item(key = "browser_info") { BrowserInfoCard() }
+            item(key = "bottom_spacer") { Spacer(Modifier.height(16.dp)) }
         }
     }
 }
@@ -165,20 +144,12 @@ private fun ExpandableModelCard(
     onToggleEnabled: () -> Unit,
     onTestConnection: () -> Unit
 ) {
-    val tokens = LocalAnimationConfig.current
     var expanded by remember { mutableStateOf(false) }
-    val elevation by animateDpAsState(
-        targetValue = if (config.isEnabled) 2.dp else 1.dp,
-        animationSpec = tween(tokens.fastDuration),
-        label = "cardElevation"
-    )
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .animateContentSize(),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = elevation),
+        elevation = CardDefaults.cardElevation(1.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
@@ -203,6 +174,7 @@ private fun ExpandableModelCard(
                     AIProvider.GLM -> Color(0xFF10A37F)
                     AIProvider.MINIMAX -> Color(0xFFE91E63)
                     AIProvider.QWEN -> Color(0xFF0070F3)
+                    AIProvider.MIMO -> Color(0xFFFF6900)
                 }
                 Box(
                     Modifier.size(40.dp).clip(CircleShape)
@@ -250,8 +222,8 @@ private fun ExpandableModelCard(
             // Expandable section
             AnimatedVisibility(
                 visible = expanded,
-                enter = expandVertically(tween(tokens.normalDuration)) + fadeIn(tween(tokens.normalDuration)),
-                exit = shrinkVertically(tween(tokens.fastDuration)) + fadeOut(tween(tokens.fastDuration))
+                enter = expandVertically(tween(200)) + fadeIn(tween(200)),
+                exit = shrinkVertically(tween(150)) + fadeOut(tween(150))
             ) {
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                     Spacer(Modifier.height(4.dp))

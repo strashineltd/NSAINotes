@@ -27,9 +27,9 @@ import javax.inject.Singleton
 @Singleton
 class SettingsDataStore @Inject constructor(
     private val dataStore: DataStore<Preferences>,
-    private val keyStore: KeyStoreManager
+    private val keyStore: KeyStoreManager,
+    private val gson: Gson
 ) {
-
     private val mutex = Mutex()
     private object Keys {
         val SELECTED_PROVIDER = stringPreferencesKey("selected_ai_provider")
@@ -46,9 +46,13 @@ class SettingsDataStore @Inject constructor(
         val SEARCH_ENGINE_CUSTOM_URL = stringPreferencesKey("search_engine_custom_url")
         val SEARCH_HISTORY = stringPreferencesKey("search_history_json")
         val BOOKMARKS = stringPreferencesKey("bookmarks_json")
+        val DEV_MODE = booleanPreferencesKey("dev_mode_enabled")
+        val ANIMATIONS_ENABLED = booleanPreferencesKey("dev_animations_enabled")
+        val LICENSE_DATA = stringPreferencesKey("license_data")
+        val LICENSE_EXPIRE = stringPreferencesKey("license_expire_time")
+        val LICENSE_FEATURES = stringPreferencesKey("license_features")
+        val LICENSE_PRODUCT_NAME = stringPreferencesKey("license_product_name")
     }
-
-    private val gson = Gson()
 
     // --- MCP Server storage ---
     val mcpServers: Flow<List<MCPServer>> = dataStore.data.map { prefs ->
@@ -129,6 +133,7 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
+    /** Returns config with decrypted API key. Prefer [ApiKeyProvider.withApiKey] for scope-controlled access. */
     suspend fun getProviderConfig(provider: AIProvider): AIProviderConfig {
         val prefs = dataStore.data.first()
         val key = provider.name
@@ -141,6 +146,19 @@ class SettingsDataStore @Inject constructor(
         return AIProviderConfig(
             provider = provider,
             apiKey = apiKey,
+            baseUrl = prefs[Keys.baseUrlKey(key)] ?: provider.defaultBaseUrl,
+            isEnabled = prefs[Keys.enabledKey(key)] == "true"
+        )
+    }
+
+    /** Returns config metadata without the API key (uses placeholder). Safe for UI display. */
+    suspend fun getProviderConfigSafe(provider: AIProvider): AIProviderConfig {
+        val prefs = dataStore.data.first()
+        val key = provider.name
+        val hasKey = !prefs[Keys.apiKeyKey(key)].isNullOrEmpty()
+        return AIProviderConfig(
+            provider = provider,
+            apiKey = if (hasKey) PLACEHOLDER_API_KEY else "",
             baseUrl = prefs[Keys.baseUrlKey(key)] ?: provider.defaultBaseUrl,
             isEnabled = prefs[Keys.enabledKey(key)] == "true"
         )
@@ -261,6 +279,56 @@ class SettingsDataStore @Inject constructor(
     suspend fun removeBookmark(url: String) {
         val bookmarks = getBookmarks().filter { it.url != url }
         dataStore.edit { prefs -> prefs[Keys.BOOKMARKS] = gson.toJson(bookmarks) }
+    }
+
+    val devModeEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[Keys.DEV_MODE] ?: false
+    }
+
+    suspend fun setDevModeEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[Keys.DEV_MODE] = enabled }
+    }
+
+    val animationsEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[Keys.ANIMATIONS_ENABLED] ?: true
+    }
+
+    suspend fun setAnimationsEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[Keys.ANIMATIONS_ENABLED] = enabled }
+    }
+
+    suspend fun getLicenseExpireTime(): Long {
+        val str = dataStore.data.first()[Keys.LICENSE_EXPIRE] ?: "0"
+        return runCatching { str.toLong() }.getOrDefault(0L)
+    }
+
+    suspend fun getLicenseData(): String {
+        return dataStore.data.first()[Keys.LICENSE_DATA] ?: ""
+    }
+
+    suspend fun setLicenseData(data: String, expireTime: Long) {
+        dataStore.edit { prefs ->
+            prefs[Keys.LICENSE_DATA] = data
+            prefs[Keys.LICENSE_EXPIRE] = expireTime.toString()
+        }
+    }
+
+    suspend fun setLicenseFeatures(features: List<String>) {
+        val json = features.joinToString(",")
+        dataStore.edit { prefs -> prefs[Keys.LICENSE_FEATURES] = json }
+    }
+
+    suspend fun getLicenseFeatures(): List<String> {
+        val json = dataStore.data.first()[Keys.LICENSE_FEATURES] ?: ""
+        return if (json.isBlank()) emptyList() else json.split(",")
+    }
+
+    suspend fun setLicenseProductName(name: String) {
+        dataStore.edit { prefs -> prefs[Keys.LICENSE_PRODUCT_NAME] = name }
+    }
+
+    suspend fun getLicenseProductName(): String? {
+        return dataStore.data.first()[Keys.LICENSE_PRODUCT_NAME]?.ifBlank { null }
     }
 
     suspend fun clearProviderConfig(provider: AIProvider) {

@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,11 +17,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.FontDownload
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -46,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.nsai.notes.domain.model.ThemeMode
@@ -54,6 +58,7 @@ import com.nsai.notes.domain.model.ThemeMode
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToActivation: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -208,6 +213,23 @@ fun SettingsScreen(
                     TextButton(onClick = { viewModel.onEvent(SettingsEvent.ShowPrivacyPolicy) }) {
                         Icon(Icons.Default.PrivacyTip, null, tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(8.dp))
                         Text("隐私协议", color = MaterialTheme.colorScheme.primary)
+                    }
+                    // License status
+                    if (uiState.licenseActive && uiState.licenseProductName != null) {
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Verified, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Column {
+                                Text(uiState.licenseProductName!!, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                Text("剩余 ${uiState.licenseExpireDays} 天", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    TextButton(onClick = onNavigateToActivation) {
+                        Icon(Icons.Default.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(8.dp))
+                        Text(if (uiState.licenseActive) "管理激活" else "AI功能激活", color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }

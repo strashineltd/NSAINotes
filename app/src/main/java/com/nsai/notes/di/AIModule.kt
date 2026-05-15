@@ -1,9 +1,11 @@
 package com.nsai.notes.di
 
 import com.nsai.notes.data.remote.ai.AIProviderAdapter
+import com.nsai.notes.data.remote.ai.BaseAIAdapter
 import com.nsai.notes.data.remote.ai.DeepSeekAdapter
 import com.nsai.notes.data.remote.ai.GLMAdapter
 import com.nsai.notes.data.remote.ai.KimiAdapter
+import com.nsai.notes.data.remote.ai.MiMoAdapter
 import com.nsai.notes.data.remote.ai.MiniMaxAdapter
 import com.nsai.notes.data.remote.ai.QwenAdapter
 import dagger.Binds
@@ -41,4 +43,9 @@ abstract class AIModule {
     @IntoSet
     @Singleton
     abstract fun bindQwenAdapter(adapter: QwenAdapter): AIProviderAdapter
+
+    @Binds
+    @IntoSet
+    @Singleton
+    abstract fun bindMiMoAdapter(adapter: MiMoAdapter): AIProviderAdapter
 }

@@ -69,7 +69,7 @@ fun MCPSkillManageScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("MCP & Skill 管理", style = MaterialTheme.typography.titleLarge) },
+                title = { Text("Skill 管理", style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
@@ -83,49 +83,14 @@ fun MCPSkillManageScreen(
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            TabRow(
-                selectedTabIndex = uiState.activeTab,
-                containerColor = Color.Transparent,
-                contentColor = MaterialTheme.colorScheme.primary
-            ) {
-                Tab(selected = uiState.activeTab == 0, onClick = { viewModel.onEvent(MCPSkillEvent.SwitchTab(0)) },
-                    text = { Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Cable, null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp)); Text("MCP服务器")
-                    } })
-                Tab(selected = uiState.activeTab == 1, onClick = { viewModel.onEvent(MCPSkillEvent.SwitchTab(1)) },
-                    text = { Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Extension, null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp)); Text("Skill插件")
-                    } })
-            }
-
-            when (uiState.activeTab) {
-                0 -> MCPServerList(
-                    servers = uiState.mcpServers,
-                    testResults = uiState.testResults,
-                    onAdd = { viewModel.onEvent(MCPSkillEvent.StartEditServer(null)) },
-                    onEdit = { viewModel.onEvent(MCPSkillEvent.StartEditServer(it)) },
-                    onDelete = { viewModel.onEvent(MCPSkillEvent.DeleteServer(it)) },
-                    onTest = { viewModel.onEvent(MCPSkillEvent.TestServer(it)) }
-                )
-                1 -> SkillPluginList(
-                    skills = uiState.skillPlugins,
-                    onAdd = { viewModel.onEvent(MCPSkillEvent.StartEditSkill(null)) },
-                    onEdit = { viewModel.onEvent(MCPSkillEvent.StartEditSkill(it)) },
-                    onDelete = { viewModel.onEvent(MCPSkillEvent.DeleteSkill(it)) }
-                )
-            }
-        }
-    }
-
-    uiState.editingServer?.let { server ->
-        MCPServerEditDialog(
-            server = server,
-            onSave = { viewModel.onEvent(MCPSkillEvent.SaveServer(it)) },
-            onDismiss = { viewModel.onEvent(MCPSkillEvent.CancelEdit) }
+        Box(Modifier.fillMaxSize().padding(padding)) {
+        SkillPluginList(
+            skills = uiState.skillPlugins,
+            onAdd = { viewModel.onEvent(MCPSkillEvent.StartEditSkill(null)) },
+            onEdit = { viewModel.onEvent(MCPSkillEvent.StartEditSkill(it)) },
+            onDelete = { viewModel.onEvent(MCPSkillEvent.DeleteSkill(it)) }
         )
+        }
     }
 
     uiState.editingSkill?.let { skill ->

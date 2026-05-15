@@ -26,10 +26,10 @@ enum class AIProvider(
         imageModel = null
     ),
     KIMI(
-        displayName = "Kimi 2.6",
+        displayName = "Kimi K2.6",
         defaultBaseUrl = "https://api.moonshot.cn/v1",
-        quickModel = "moonshot-v1-8k",
-        thinkModel = "moonshot-v1-8k",
+        quickModel = "kimi-k2.6",
+        thinkModel = "kimi-thinking-preview",
         imageModel = null
     ),
     GLM(
@@ -54,6 +54,14 @@ enum class AIProvider(
         thinkModel = "qwen3-max",
         imageModel = null,
         supportsVision = true
+    ),
+    MIMO(
+        displayName = "MiMo 2.5 Pro",
+        defaultBaseUrl = "https://api.xiaomimimo.com/v1",
+        quickModel = "mimo-2.5-pro",
+        thinkModel = "mimo-2.5-pro",
+        imageModel = null,
+        supportsVision = false
     );
 
     fun getModelForMode(mode: AIMode): String? = when (mode) {

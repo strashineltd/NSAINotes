@@ -4,7 +4,9 @@ import androidx.compose.runtime.Stable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nsai.notes.data.local.datastore.SettingsDataStore
+import com.nsai.notes.data.local.license.LicenseManager
 import com.nsai.notes.data.remote.search.SearchResult
+import com.nsai.notes.data.local.license.ActivateResult
 import com.nsai.notes.data.remote.search.WebSearchService
 import com.nsai.notes.domain.model.AIMode
 import com.nsai.notes.domain.model.AIProvider
@@ -67,6 +69,7 @@ sealed class AIHomeEvent {
     data object ToggleDocGenMode : AIHomeEvent()
     data object ToggleWebSearch : AIHomeEvent()
     data object ToggleRagMode : AIHomeEvent()
+    data class SaveAsNote(val content: String) : AIHomeEvent()
     data object ClearError : AIHomeEvent()
     data object LoadHistory : AIHomeEvent()
     data object NewConversation : AIHomeEvent()
@@ -91,9 +94,15 @@ class AIHomeViewModel @Inject constructor(
     private val conversationRepository: ConversationRepository,
     private val webSearchService: WebSearchService,
     private val retrieveContextUseCase: RetrieveContextUseCase,
-    private val reActLoop: ReActLoop
+    private val reActLoop: ReActLoop,
+    private val licenseManager: LicenseManager
 ) : ViewModel() {
 
+    fun isLicenseActive(): Boolean = licenseManager.isActive.value
+
+    fun hasFeature(feature: String): Boolean = licenseManager.hasFeature(feature)
+
+    fun getLicenseFeatures(): List<String> = licenseManager.features.value
     private val _uiState = MutableStateFlow(AIHomeUiState())
     val uiState: StateFlow<AIHomeUiState> = _uiState.asStateFlow()
 
@@ -160,6 +169,7 @@ class AIHomeViewModel @Inject constructor(
                 clearAllModes()
                 if (!wasActive) _uiState.value = _uiState.value.copy(isRagMode = true)
             }
+            is AIHomeEvent.SaveAsNote -> saveAsNote(event.content)
             AIHomeEvent.ClearError -> _uiState.value = _uiState.value.copy(error = null)
             AIHomeEvent.LoadHistory -> loadHistory()
             AIHomeEvent.NewConversation -> newConversation()
@@ -193,6 +203,18 @@ class AIHomeViewModel @Inject constructor(
         viewModelScope.launch {
             settingsDataStore.addSearchHistory(query)
             _uiState.value = _uiState.value.copy(searchHistory = settingsDataStore.getSearchHistory())
+        }
+    }
+
+    private fun saveAsNote(content: String) {
+        viewModelScope.launch {
+            try {
+                val title = content.take(40).replace("\n", " ").trim()
+                noteRepository.createNote(Note(title = title.ifBlank { "AI对话" }, content = content))
+                _uiState.value = _uiState.value.copy(error = null)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(error = "保存失败")
+            }
         }
     }
 

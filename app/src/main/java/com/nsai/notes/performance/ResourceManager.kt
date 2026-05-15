@@ -12,7 +12,8 @@ import javax.inject.Singleton
 @Singleton
 class ResourceManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val imageLoader: dagger.Lazy<ImageLoader>
+    private val imageLoader: dagger.Lazy<ImageLoader>,
+    private val deviceConfig: DeviceAdaptiveConfig
 ) {
     private var isLowMemory = false
     private var trimCount = 0
@@ -62,13 +63,18 @@ class ResourceManager @Inject constructor(
             clearDiskCache()
             isLowMemory = false
         }
+        // Always suggest GC on navigation to reduce memory pressure
+        System.gc()
     }
 
     fun prepareForHeavyScreen() {
-        if (isLowMemory) {
+        if (isLowMemory || deviceConfig.deviceClass == DeviceClass.LOW) {
             clearMemoryCache()
         }
+        System.gc()
     }
+
+    fun getMaxCacheSize(): Int = deviceConfig.memoryBudgetMB
 
     private fun clearMemoryCache() {
         imageLoader.get().memoryCache?.clear()

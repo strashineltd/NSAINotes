@@ -15,6 +15,9 @@ object CertificatePins {
         Pin("dashscope.aliyuncs.com", "sha256/WZVJFj4+3elgfAAI/zW+L9mKCgh+6gck7f6zYoUC0Yg=")
     )
 
+    // Pins pending real cert fetch — add sha256 hash before enabling:
+    // Pin("api.xiaomimimo.com", "sha256/...")
+
     // When providers rotate certificates, add the new pin as a backup BEFORE the old
     // one stops working. Keep the backup list empty until a rotation is announced.
     val backupPins: List<Pin> = emptyList()

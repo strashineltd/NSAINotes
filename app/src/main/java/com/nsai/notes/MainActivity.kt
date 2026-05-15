@@ -6,6 +6,7 @@ import android.view.Display
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,13 +27,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import android.content.Context
+import android.widget.Toast
 import com.nsai.notes.data.local.datastore.SettingsDataStore
 import com.nsai.notes.domain.model.ThemeMode
 import com.nsai.notes.performance.FluidityManager
 import com.nsai.notes.performance.FluidityConfig
 import com.nsai.notes.performance.FrameMonitor
+import com.nsai.notes.performance.AppPerformanceManager
+import com.nsai.notes.performance.CrashLogService
 import com.nsai.notes.performance.InputThrottler
 import com.nsai.notes.presentation.navigation.NSAINavGraph
 import com.nsai.notes.presentation.theme.AnimationTokens
@@ -55,15 +63,29 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var inputThrottler: InputThrottler
 
+    @Inject
+    lateinit var crashLogService: CrashLogService
+
+    @Inject
+    lateinit var securityChecker: com.nsai.notes.data.local.security.SecurityChecker
+
+    @Inject
+    lateinit var appPerformanceManager: AppPerformanceManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        lockRefreshRate60Hz()
+        matchDisplayRefreshRate()
+        preventTapjacking()
+        hideFromRecentApps()
+        appPerformanceManager.startThermalMonitoring()
         setContent {
             NSAINotesMainFrame(
                 settingsDataStore = settingsDataStore,
                 fluidityManager = fluidityManager,
                 inputThrottler = inputThrottler,
+                crashLogService = crashLogService,
+                securityChecker = securityChecker,
                 onAcceptPrivacy = { settingsDataStore.acceptPrivacy() }
             )
         }
@@ -71,8 +93,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        lockRefreshRate60Hz()
+        matchDisplayRefreshRate()
         frameMonitor.start()
+        clearClipboardSensitive()
     }
 
     override fun onPause() {
@@ -80,8 +103,57 @@ class MainActivity : ComponentActivity() {
         super.onPause()
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        appPerformanceManager.onTrimMemory(level)
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        appPerformanceManager.onLowMemory()
+    }
+
+    private fun preventTapjacking() {
+        window?.decorView?.post {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                window?.setSystemGestureExclusionRects(listOf(android.graphics.Rect(0, 0, 0, 0)))
+            }
+        }
+        // Block overlay attacks on API 26+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            window?.setFlags(
+                android.view.WindowManager.LayoutParams.FLAG_SECURE,
+                android.view.WindowManager.LayoutParams.FLAG_SECURE
+            )
+        }
+    }
+
+    fun setSecureWindow(secure: Boolean = true) {
+        if (secure) {
+            window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
+    private fun hideFromRecentApps() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            // Android 14+: hide sensitive content from app switcher
+            window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
+    private fun clearClipboardSensitive() {
+        // Clear any API keys that might have leaked to clipboard
+        val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+        if (clipboard?.hasPrimaryClip() == true) {
+            val clipText = clipboard.primaryClip?.getItemAt(0)?.text?.toString() ?: ""
+            // Detect API key patterns and clear them
+            if (clipText.contains("sk-") || clipText.contains("Bearer ") ||
+                Regex("[0-9a-fA-F]{32,}").containsMatchIn(clipText)) {
+                clipboard.clearPrimaryClip()
+            }
+        }
     }
 
     private fun lockRefreshRate60Hz() {
@@ -97,6 +169,24 @@ class MainActivity : ComponentActivity() {
             }
         } catch (_: Exception) {}
     }
+
+    override fun onDestroy() {
+        super.onDestroy()
+    }
+
+    private fun matchDisplayRefreshRate() {
+        try {
+            val dm = getSystemService(DISPLAY_SERVICE) as DisplayManager
+            val display = dm.getDisplay(Display.DEFAULT_DISPLAY)
+            val modes = display.supportedModes
+            val bestMode = modes.maxByOrNull { it.refreshRate }
+            if (bestMode != null && bestMode.modeId != window.attributes.preferredDisplayModeId) {
+                val params = window.attributes
+                params.preferredDisplayModeId = bestMode.modeId
+                window.attributes = params
+            }
+        } catch (_: Exception) {}
+    }
 }
 
 @Composable
@@ -104,12 +194,17 @@ private fun NSAINotesMainFrame(
     settingsDataStore: SettingsDataStore,
     fluidityManager: FluidityManager,
     inputThrottler: InputThrottler,
+    crashLogService: CrashLogService,
+    securityChecker: com.nsai.notes.data.local.security.SecurityChecker,
     onAcceptPrivacy: suspend () -> Unit
 ) {
     var privacyAccepted by remember { mutableStateOf<Boolean?>(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     LaunchedEffect(Unit) {
         privacyAccepted = settingsDataStore.isPrivacyAccepted()
+        // Security check deferred to background — runs after first frame renders
+        checkSecurityThreats(securityChecker, crashLogService, context)
     }
 
     val themeValue by settingsDataStore.themeMode.collectAsState(initial = 0)
@@ -120,7 +215,25 @@ private fun NSAINotesMainFrame(
 
     val shouldShowDialog = privacyAccepted == false
 
-    if (privacyAccepted == null) return // loading
+    if (privacyAccepted == null) {
+        // Show themed loading surface instead of blank frame
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = when (themeMode) {
+                ThemeMode.LIGHT -> Color(0xFFF8F9FA)
+                ThemeMode.DARK -> Color(0xFF1C1B1F)
+                ThemeMode.SYSTEM -> Color(0xFFF8F9FA) // default to light
+            }
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        }
+        return
+    }
 
     if (shouldShowDialog) {
         PrivacyDialog(onAccept = {
@@ -154,7 +267,7 @@ private fun PrivacyDialog(
         title = { Text("隐私许可协议") },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Text("欢迎使用 NSAI笔记 v2.0！", style = MaterialTheme.typography.titleMedium)
+                Text("欢迎使用 NSAI笔记 v${BuildConfig.VERSION_NAME}！", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(12.dp))
                 Text("本应用尊重并保护您的隐私：")
                 Spacer(Modifier.height(8.dp))
@@ -191,4 +304,22 @@ private fun PrivacyDialog(
         },
         shape = RoundedCornerShape(16.dp)
     )
+}
+
+private fun checkSecurityThreats(
+    securityChecker: com.nsai.notes.data.local.security.SecurityChecker,
+    crashLogService: CrashLogService,
+    context: android.content.Context
+) {
+    val level = securityChecker.threatLevel
+    if (level >= com.nsai.notes.data.local.security.SecurityChecker.ThreatLevel.HIGH) {
+        crashLogService.log("SECURITY", "威胁等级: $level (rooted=${securityChecker.isRooted} hooked=${securityChecker.isHooked})")
+        if (level == com.nsai.notes.data.local.security.SecurityChecker.ThreatLevel.COMPROMISED) {
+            android.widget.Toast.makeText(
+                context,
+                "⚠️ 检测到安全威胁，敏感功能已禁用",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        }
+    }
 }

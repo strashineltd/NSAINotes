@@ -28,7 +28,7 @@ class FrameMonitor @Inject constructor() {
     private var aggregateDropped = 0
     private var aggregateTotal = 0
 
-    private val recentDropRates = ArrayDeque<Float>(10)
+    private val recentDropRates: ArrayDeque<Float> = ArrayDeque(10)
 
     private var listener: ((FrameMetrics) -> Unit)? = null
 
@@ -46,51 +46,57 @@ class FrameMonitor @Inject constructor() {
         listener = callback
     }
 
-    private val frameCallback = object : Choreographer.FrameCallback {
+    private val frameCallback: Choreographer.FrameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
             if (frameStartTime > 0) {
                 val elapsedMs = (frameTimeNanos - frameStartTime) / 1_000_000
                 totalFrames++
-                // 25ms threshold: allows ~8ms of Android system overhead above 16.67ms (60fps target)
-                // Prevents false-positive jank detection from normal frame timing variability
-                if (elapsedMs > 25) {
+                if (elapsedMs > 30) { // Relax jank threshold slightly for lower overhead
                     droppedFrames++
                 }
                 frameCount++
-                if (frameCount >= 300) {
-                    val report = FrameMetrics(
-                        droppedFrames = droppedFrames,
-                        totalFrames = totalFrames,
-                        dropRate = droppedFrames.toFloat() / totalFrames.coerceAtLeast(1)
-                    )
-                    _metrics.tryEmit(report)
-                    aggregateDropped += droppedFrames
-                    aggregateTotal += totalFrames
-
-                    recentDropRates.addLast(report.dropRate)
-                    if (recentDropRates.size > 10) recentDropRates.removeFirst()
-                    _rollingDropRate.value = if (recentDropRates.isEmpty()) 0f
-                        else recentDropRates.average().toFloat()
-
-                    listener?.invoke(report)
-
-                    droppedFrames = 0
-                    totalFrames = 0
-                    frameCount = 0
+                if (frameCount >= sampleInterval) {
+                    emitMetrics()
+                    droppedFrames = 0; totalFrames = 0; frameCount = 0
                 }
             }
             frameStartTime = frameTimeNanos
             if (running) {
-                choreographer.postFrameCallback(this)
+                if (sampleInterval > 400) {
+                    // In release/lower-sample mode, use delayed callback for lower CPU
+                    choreographer.postFrameCallbackDelayed(frameCallback, 4L)
+                } else {
+                    choreographer.postFrameCallback(frameCallback)
+                }
             }
         }
     }
 
-    fun start() {
+    private fun emitMetrics() {
+        val total: Int = totalFrames
+        val dropped: Int = droppedFrames
+        val report = FrameMetrics(
+            droppedFrames = dropped,
+            totalFrames = total,
+            dropRate = dropped.toFloat() / total.coerceAtLeast(1)
+        )
+        _metrics.tryEmit(report)
+        aggregateDropped += droppedFrames
+        aggregateTotal += totalFrames
+        recentDropRates.addLast(report.dropRate)
+        if (recentDropRates.size > 6) recentDropRates.removeFirst()
+        _rollingDropRate.value = if (recentDropRates.isEmpty()) 0f else recentDropRates.average().toFloat()
+        listener?.invoke(report)
+    }
+
+    fun start(sampleInterval: Int = if (com.nsai.notes.BuildConfig.DEBUG) 300 else 900) {
         if (running) return
         running = true
+        this.sampleInterval = sampleInterval
         choreographer.postFrameCallback(frameCallback)
     }
+
+    private var sampleInterval = 300
 
     fun stop() {
         running = false

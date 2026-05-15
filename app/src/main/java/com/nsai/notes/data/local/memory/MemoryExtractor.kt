@@ -4,11 +4,13 @@ import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 import com.nsai.notes.domain.memory.Memory
 import com.nsai.notes.domain.memory.MemoryType
+import javax.inject.Inject
+import javax.inject.Singleton
 
-object MemoryExtractor {
-
-    private val gson = Gson()
-
+@Singleton
+class MemoryExtractor @Inject constructor(
+    private val gson: Gson
+) {
     private data class MemoryJson(@SerializedName("memories") val memories: List<MemoryItem>? = null)
     private data class MemoryItem(val type: String = "", val key: String = "", val content: String = "")
 

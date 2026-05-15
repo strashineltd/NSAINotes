@@ -22,7 +22,8 @@ class DataCleanupWorker @AssistedInject constructor(
             expiredNotes.forEach { noteDao.permanentlyDeleteNote(it) }
             Result.success()
         } catch (e: Exception) {
-            Result.retry()
+            if (runAttemptCount >= 3) Result.failure()
+            else Result.retry()
         }
     }
 }

@@ -16,9 +16,9 @@ data class UpdateInfo(
 
 @Singleton
 class UpdateChecker @Inject constructor(
-    private val client: OkHttpClient
+    private val client: OkHttpClient,
+    private val gson: Gson
 ) {
-    private val gson = Gson()
     private val updateUrl = "https://nsainotes.github.io/version.json"
 
     suspend fun check(currentVersion: String): Result<UpdateInfo> = withContext(Dispatchers.IO) {

@@ -22,7 +22,7 @@ interface ConversationDao {
     suspend fun insert(conversation: ConversationEntity): Long
 
     @Update
-    suspend fun update(conversation: ConversationEntity)
+    suspend fun update(conversation: ConversationEntity): Int
 
     @Delete
     suspend fun delete(conversation: ConversationEntity)

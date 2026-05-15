@@ -16,4 +16,8 @@ abstract class AgentModule {
     @Binds @IntoSet @Singleton abstract fun bindCreateNoteTool(tool: CreateNoteTool): AgentTool
     @Binds @IntoSet @Singleton abstract fun bindListNotesTool(tool: ListNotesTool): AgentTool
     @Binds @IntoSet @Singleton abstract fun bindWebSearchTool(tool: WebSearchTool): AgentTool
+    @Binds @IntoSet @Singleton abstract fun bindGetNoteContentTool(tool: GetNoteContentTool): AgentTool
+    @Binds @IntoSet @Singleton abstract fun bindUpdateNoteTool(tool: UpdateNoteTool): AgentTool
+    @Binds @IntoSet @Singleton abstract fun bindDeleteNoteTool(tool: DeleteNoteTool): AgentTool
+    @Binds @IntoSet @Singleton abstract fun bindGetTimeTool(tool: GetTimeTool): AgentTool
 }

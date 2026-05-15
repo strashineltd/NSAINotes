@@ -188,30 +188,10 @@ fun NSAINavGraph(
 
             composable(
                 route = Screen.AIModelSettings.route,
-                enterTransition = {
-                    slideInVertically(
-                        animationSpec = spring(
-                            dampingRatio = tokens.springDamping,
-                            stiffness = tokens.springStiffness
-                        ),
-                        initialOffsetY = { it / 6 }
-                    ) + fadeIn(animationSpec = tween(tokens.normalDuration))
-                },
-                exitTransition = {
-                    slideOutVertically(
-                        animationSpec = tween(tokens.normalDuration),
-                        targetOffsetY = { it / 8 }
-                    ) + fadeOut(animationSpec = tween(tokens.fastDuration))
-                },
-                popEnterTransition = {
-                    fadeIn(animationSpec = tween(tokens.normalDuration))
-                },
-                popExitTransition = {
-                    slideOutVertically(
-                        animationSpec = tween(tokens.normalDuration),
-                        targetOffsetY = { it / 6 }
-                    ) + fadeOut(animationSpec = tween(tokens.fastDuration))
-                }
+                enterTransition = { fadeIn(animationSpec = tween(150)) },
+                exitTransition = { fadeOut(animationSpec = tween(120)) },
+                popEnterTransition = { fadeIn(animationSpec = tween(120)) },
+                popExitTransition = { fadeOut(animationSpec = tween(150)) }
             ) {
                 AIModelSettingsScreen(
                     onNavigateBack = { navController.popBackStack() }
@@ -228,6 +208,9 @@ fun NSAINavGraph(
                     },
                     onNavigateToMCPSkill = {
                         navController.navigate(Screen.MCPSkill.route)
+                    },
+                    onNavigateToActivation = {
+                        navController.navigate(Screen.Activation.route)
                     }
                 )
             }
@@ -292,12 +275,24 @@ fun NSAINavGraph(
 
             composable(Screen.Settings.route) {
                 SettingsScreen(
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToActivation = { navController.navigate(Screen.Activation.route) }
                 )
             }
 
             composable(Screen.MCPSkill.route) {
                 MCPSkillManageScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = Screen.Activation.route,
+                enterTransition = { fadeIn(animationSpec = tween(180)) },
+                exitTransition = { fadeOut(animationSpec = tween(150)) },
+                popEnterTransition = { fadeIn(animationSpec = tween(150)) },
+                popExitTransition = { fadeOut(animationSpec = tween(180)) }
+            ) {
+                com.nsai.notes.presentation.license.ActivationScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
