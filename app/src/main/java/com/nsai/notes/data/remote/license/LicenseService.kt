@@ -27,9 +27,7 @@ data class LicenseValidateResponse(
 class LicenseService @Inject constructor(
     private val client: OkHttpClient
 ) {
-    // Backend management platform URL
-    // Use 10.0.2.2 for emulator, 192.168.x.x for real device on same WiFi
-    var serverUrl: String = "http://192.168.0.103:3005"
+    var serverUrl: String = com.nsai.notes.data.remote.ServerConfig.baseUrl
 
     fun validate(activationCode: String, deviceId: String): LicenseValidateResponse {
         return try {

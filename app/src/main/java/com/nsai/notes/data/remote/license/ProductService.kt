@@ -38,7 +38,7 @@ data class OrderResult(
 class ProductService @Inject constructor(
     private val client: OkHttpClient
 ) {
-    var serverUrl: String = "http://192.168.0.103:3005"
+    var serverUrl: String = com.nsai.notes.data.remote.ServerConfig.baseUrl
 
     fun fetchProducts(): List<ProductInfo> {
         return try {
