@@ -229,7 +229,7 @@ fun SettingsScreen(
                     Spacer(Modifier.height(4.dp))
                     TextButton(onClick = onNavigateToActivation) {
                         Icon(Icons.Default.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(8.dp))
-                        Text(if (uiState.licenseActive) "管理激活" else "AI功能激活", color = MaterialTheme.colorScheme.primary)
+                        Text(if (uiState.licenseActive) "管理套餐" else "套餐购买", color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }

@@ -18,6 +18,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -52,6 +53,7 @@ import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material3.ButtonDefaults
@@ -254,6 +256,20 @@ fun AIHomeScreen(
                     }
                 },
                 actions = {
+                    // Membership badge
+                    val licenseActive = viewModel.isLicenseActive()
+                    IconButton(onClick = onNavigateToActivation) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Star, "会员",
+                                Modifier.size(22.dp),
+                                tint = if (licenseActive) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurfaceVariant)
+                            Box(
+                                Modifier.size(8.dp).align(Alignment.BottomEnd).offset(2.dp, 2.dp)
+                                    .clip(CircleShape)
+                                    .background(if (licenseActive) Color(0xFF4CAF50) else Color(0xFFBDBDBD))
+                            )
+                        }
+                    }
                     IconButton(onClick = { viewModel.onEvent(AIHomeEvent.ToggleHistory) }) {
                         Icon(Icons.Default.History, "历史",
                             tint = if (uiState.showHistory) MaterialTheme.colorScheme.primary
@@ -371,7 +387,7 @@ fun AIHomeScreen(
     if (showUpgradeDialog) {
         AlertDialog(
             onDismissRequest = { showUpgradeDialog = false },
-            title = { Text("解锁高级用户体验", style = MaterialTheme.typography.titleLarge) },
+            title = { Text("套餐购买或激活", style = MaterialTheme.typography.titleLarge) },
             text = {
                 Column {
                     Text("AI功能需要激活后才能使用")
@@ -381,7 +397,7 @@ fun AIHomeScreen(
                     Text("📚 知识库检索", style = MaterialTheme.typography.bodyMedium)
                     Text("🎨 AI图片生成", style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(8.dp))
-                    Text("仅需 ¥5/年 · 绑定设备", style = MaterialTheme.typography.labelMedium,
+                    Text("¥10/年起 · 绑定设备", style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary)
                 }
             },
@@ -389,7 +405,7 @@ fun AIHomeScreen(
                 TextButton(onClick = {
                     showUpgradeDialog = false
                     onNavigateToActivation()
-                }) { Text("立即激活") }
+                }) { Text("套餐购买") }
             },
             dismissButton = {
                 TextButton(onClick = { showUpgradeDialog = false }) { Text("稍后") }

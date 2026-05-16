@@ -28,8 +28,8 @@ class LicenseService @Inject constructor(
     private val client: OkHttpClient
 ) {
     // Backend management platform URL
-    // Use 10.0.2.2 for Android emulator (maps to host localhost), or real IP for physical devices
-    var serverUrl: String = "http://10.0.2.2:3005"
+    // Use 10.0.2.2 for emulator, 192.168.x.x for real device on same WiFi
+    var serverUrl: String = "http://192.168.0.103:3005"
 
     fun validate(activationCode: String, deviceId: String): LicenseValidateResponse {
         return try {
