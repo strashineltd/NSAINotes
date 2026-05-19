@@ -96,7 +96,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        matchDisplayRefreshRate()
         frameMonitor.start()
         clearClipboardSensitive()
     }
@@ -152,20 +151,6 @@ class MainActivity : ComponentActivity() {
                 clipboard.clearPrimaryClip()
             }
         }
-    }
-
-    private fun lockRefreshRate60Hz() {
-        try {
-            val dm = getSystemService(DISPLAY_SERVICE) as DisplayManager
-            val display = dm.getDisplay(Display.DEFAULT_DISPLAY)
-            val modes = display.supportedModes
-            val mode60 = modes.minByOrNull { (it.refreshRate - 60.0f).let { d -> d * d } }
-            if (mode60 != null && mode60.modeId != window.attributes.preferredDisplayModeId) {
-                val params = window.attributes
-                params.preferredDisplayModeId = mode60.modeId
-                window.attributes = params
-            }
-        } catch (_: Exception) {}
     }
 
     override fun onDestroy() {

@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FontDownload
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Verified
@@ -174,7 +175,7 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(4.dp))
-                        Text("内置 WebView 浏览器由您主动使用，浏览行为遵循标准浏览器规则，本应用不对浏览内容进行监控或记录。语音识别功能使用 Android 系统内置的本地语音引擎（SpeechRecognizer），无需联网即可完成语音转文字，音频数据不会外传。本应用未集成任何第三方分析与追踪服务。",
+                        Text("内置 WebView 浏览器由您主动使用，浏览行为遵循标准浏览器规则，本应用不对浏览内容进行监控或记录。本应用未集成任何第三方分析与追踪服务。",
                             style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.height(12.dp))
 
@@ -324,6 +325,16 @@ fun SettingsScreen(
                             Icon(Icons.Default.Favorite, null, tint = Color(0xFFE91E63))
                             Spacer(Modifier.width(8.dp))
                             Text("支持作者", color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/strashineltd/NSAINotes"))
+                            context.startActivity(intent)
+                        }) {
+                            Icon(Icons.Default.OpenInBrowser, null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(8.dp))
+                            Text("GitHub 仓库", color = MaterialTheme.colorScheme.primary)
                         }
                     }
                     // License status

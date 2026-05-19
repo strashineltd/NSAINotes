@@ -50,7 +50,6 @@ import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
@@ -114,7 +113,6 @@ import com.nsai.notes.presentation.ai.components.AgentStepCard
 import com.nsai.notes.presentation.ai.components.WorkspaceTab
 import com.nsai.notes.presentation.ai.components.WorkspaceTabs
 import com.nsai.notes.presentation.theme.LocalAnimationConfig
-import com.nsai.notes.presentation.voice.VoiceInputDialog
 
 private data class Suggestion(
     val icon: ImageVector, val title: String, val prompt: String, val gradient: List<Color>
@@ -143,7 +141,6 @@ fun AIHomeScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val chatListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    var showVoiceDialog by remember { mutableStateOf(false) }
     var showBrowser by remember { mutableStateOf(false) }
     var browserUrl by remember { mutableStateOf("https://www.google.com") }
     var showMoreSheet by remember { mutableStateOf(false) }
@@ -162,11 +159,6 @@ fun AIHomeScreen(
     LaunchedEffect(uiState.error) {
         uiState.error?.let { snackbarHostState.showSnackbar(it); viewModel.onEvent(AIHomeEvent.ClearError) }
     }
-
-    if (showVoiceDialog) VoiceInputDialog(
-        onTextResult = { viewModel.onEvent(AIHomeEvent.UpdateInput(it)); viewModel.onEvent(AIHomeEvent.SendMessage) },
-        onDismiss = { showVoiceDialog = false }
-    )
 
     // "+" more modes bottom sheet
     if (showMoreSheet) {
@@ -375,7 +367,6 @@ fun AIHomeScreen(
                         viewModel.onEvent(AIHomeEvent.SendMessage)
                     }
                 },
-                onVoice = { showVoiceDialog = true },
                 onBrowser = { browserUrl = ""; showBrowser = true }
             )
         }
@@ -694,7 +685,7 @@ private fun ChatBubble(message: ChatMessage, onUrlClick: (String) -> Unit = {}, 
 @Composable
 private fun InputBar(
     text: String, isLoading: Boolean, onTextChange: (String) -> Unit,
-    onSend: () -> Unit, onVoice: () -> Unit, onBrowser: () -> Unit,
+    onSend: () -> Unit, onBrowser: () -> Unit,
     placeholder: String = "输入消息..."
 ) {
     Card(
@@ -718,10 +709,6 @@ private fun InputBar(
             )
             IconButton(onClick = onBrowser, modifier = Modifier.size(38.dp)) {
                 Icon(Icons.Default.TravelExplore, "浏览器", Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            IconButton(onClick = onVoice, modifier = Modifier.size(38.dp)) {
-                Icon(Icons.Default.Mic, "语音", Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             val canSend = text.isNotBlank() && !isLoading

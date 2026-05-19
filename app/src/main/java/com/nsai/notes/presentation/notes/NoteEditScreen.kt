@@ -88,7 +88,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.nsai.notes.presentation.notes.components.MarkdownPreview
 import com.nsai.notes.presentation.theme.LocalAnimationConfig
-import com.nsai.notes.presentation.voice.VoiceInputDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -99,18 +98,10 @@ fun NoteEditScreen(
     viewModel: NoteEditViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var showVoiceDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
-    if (showVoiceDialog) {
-        VoiceInputDialog(
-            onTextResult = { text -> viewModel.onEvent(NoteEditEvent.InsertText(text)) },
-            onDismiss = { showVoiceDialog = false }
-        )
-    }
-
     LaunchedEffect(noteId) {
-        delay(180) // let enter animation settle before I/O
+        delay(100) // let enter animation settle before I/O
         if (noteId != null) viewModel.onEvent(NoteEditEvent.LoadNote(noteId))
         viewModel.onEvent(NoteEditEvent.LoadTags)
     }
@@ -336,15 +327,6 @@ fun NoteEditScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(Modifier.weight(1f))
-                        IconButton(
-                            onClick = { showVoiceDialog = true },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(Icons.Default.Mic, "语音",
-                                modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Spacer(Modifier.width(4.dp))
                         IconButton(
                             onClick = { viewModel.onEvent(NoteEditEvent.TogglePreview) },
                             modifier = Modifier.size(36.dp)

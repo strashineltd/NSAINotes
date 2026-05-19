@@ -69,7 +69,11 @@ class NSAIApp : Application() {
             fluidityManager.navigationEvents.collect { /* Navigation events consumed by FluidityManager internally */ }
         }
 
-        enqueueWorkers()
+        // Defer WorkManager enqueue to after app startup completes
+        appScope.launch {
+            kotlinx.coroutines.delay(5000L)
+            enqueueWorkers()
+        }
     }
 
     private fun enqueueWorkers() {
