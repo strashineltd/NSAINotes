@@ -10,6 +10,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FontDownload
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PrivacyTip
@@ -55,16 +57,21 @@ import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.nsai.notes.R
 import com.nsai.notes.domain.model.ThemeMode
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,6 +83,7 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    var showDonateDialog by remember { mutableStateOf(false) }
 
     // Dialogs ...
     when (val dialog = uiState.updateDialog) {
@@ -310,6 +318,14 @@ fun SettingsScreen(
                         Icon(Icons.Default.PrivacyTip, null, tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(8.dp))
                         Text("隐私协议", color = MaterialTheme.colorScheme.primary)
                     }
+                    HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { showDonateDialog = true }) {
+                            Icon(Icons.Default.Favorite, null, tint = Color(0xFFE91E63))
+                            Spacer(Modifier.width(8.dp))
+                            Text("支持作者", color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
                     // License status
                     if (uiState.licenseActive && uiState.licenseProductName != null) {
                         Spacer(Modifier.height(8.dp))
@@ -365,5 +381,67 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    // Donation dialog
+    if (showDonateDialog) {
+        AlertDialog(
+            onDismissRequest = { showDonateDialog = false },
+            title = { Text("支持作者") },
+            text = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "如果 NSAI笔记 对你有帮助，欢迎支持作者！",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        QrCodeColumn(
+                            painterResource(R.drawable.wechat_qr),
+                            "微信收款"
+                        )
+                        QrCodeColumn(
+                            painterResource(R.drawable.alipay_qr),
+                            "支付宝收款"
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDonateDialog = false }) {
+                    Text("关闭")
+                }
+            },
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+}
+
+@Composable
+private fun QrCodeColumn(
+    painter: Painter,
+    label: String
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Image(
+            painter = painter,
+            contentDescription = label,
+            modifier = Modifier
+                .size(130.dp)
+                .clip(RoundedCornerShape(12.dp))
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall
+        )
     }
 }

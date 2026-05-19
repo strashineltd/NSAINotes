@@ -58,5 +58,12 @@
 | 检查 | 结果 |
 |------|------|
 | compileDebugKotlin | ✅ 通过 |
-| assembleDebug | ✅ 成功 (1m 1s) |
+| assembleDebug | ✅ 成功 (49s) |
 | adb install | ✅ 已装到设备 KJXCDY8D9DCAUWNB |
+
+## 捐赠功能（微信/支付宝收款码）✅
+| # | 文件 | 修改 | 状态 |
+|---|------|------|------|
+| — | res/drawable/wechat_qr.png | 微信收款码图片 | ✅ |
+| — | res/drawable/alipay_qr.png | 支付宝收款码图片 | ✅ |
+| — | SettingsScreen.kt | 「支持作者」按钮 + 弹窗 + QrCodeColumn | ✅ |
