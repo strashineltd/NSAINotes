@@ -4,7 +4,7 @@
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-blue)](https://kotlinlang.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
-[![Download](https://img.shields.io/badge/Download-v1.3%20Stable-blue?logo=android)](https://github.com/strashineltd/NSAINotes/releases/download/v1.3-stable/app-debug.apk)
+[![Download](https://img.shields.io/badge/Download-v1.3.1%20Stable-blue?logo=android)](https://github.com/strashineltd/NSAINotes/releases/download/v1.3.1-stable/app-debug.apk)
 [![Release](https://img.shields.io/github/v/release/strashineltd/NSAINotes?label=Release)](https://github.com/strashineltd/NSAINotes/releases/latest)
 
 **NSAI笔记** 是一款以本地存储为核心、集成多模型 AI 对话能力的 Android 笔记应用。所有数据默认存储在您的设备上，您拥有数据的完全控制权。
