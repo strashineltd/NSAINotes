@@ -148,8 +148,8 @@ private fun AnimatedTagItem(
     AnimatedVisibility(
         visible = true,
         modifier = modifier,
-        enter = fadeIn(animationSpec = tween(delayMillis = effectiveDelay)) +
-                slideInVertically(animationSpec = tween(delayMillis = effectiveDelay)) { it / 4 }
+        enter = fadeIn(animationSpec = tween(durationMillis = tokens.normalDuration, delayMillis = effectiveDelay)) +
+                slideInVertically(animationSpec = tween(durationMillis = tokens.normalDuration, delayMillis = effectiveDelay)) { it / 4 }
     ) {
         content()
     }

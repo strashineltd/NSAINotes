@@ -1,12 +1,8 @@
 package com.nsai.notes.performance
 
 import android.view.Choreographer
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import com.nsai.notes.BuildConfig
 import javax.inject.Inject
@@ -33,13 +29,6 @@ class FrameMonitor @Inject constructor() {
     private val recentDropRates = ArrayDeque<Float>(10)
 
     @Volatile private var listener: ((FrameMetrics) -> Unit)? = null
-
-    private val _metrics = MutableSharedFlow<FrameMetrics>(
-        replay = 0,
-        extraBufferCapacity = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
-    )
-    val metrics: SharedFlow<FrameMetrics> = _metrics.asSharedFlow()
 
     private val _rollingDropRate = MutableStateFlow(0f)
     val rollingDropRate: StateFlow<Float> = _rollingDropRate.asStateFlow()
@@ -82,7 +71,6 @@ class FrameMonitor @Inject constructor() {
             totalFrames = total,
             dropRate = dropped.toFloat() / total.coerceAtLeast(1)
         )
-        _metrics.tryEmit(report)
         aggregateDropped += droppedFrames
         aggregateTotal += totalFrames
         synchronized(recentDropRates) {

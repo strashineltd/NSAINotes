@@ -84,6 +84,7 @@ fun NoteListScreen(
     viewModel: NoteListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val tokens = LocalAnimationConfig.current
     val scope = rememberCoroutineScope()
     var pinDialog by remember { mutableStateOf<PINDialogState>(PINDialogState.Hidden) }
     var renameDialog by remember { mutableStateOf<Long?>(null) }
@@ -228,8 +229,8 @@ fun NoteListScreen(
             val fabScale by animateFloatAsState(
                 targetValue = if (isPressed) 1.12f else 1f,
                 animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMedium
+                    dampingRatio = tokens.springDamping,
+                    stiffness = tokens.springStiffness
                 ),
                 label = "fabPress"
             )
@@ -327,8 +328,8 @@ private fun AnimatedNoteItem(
     AnimatedVisibility(
         visible = true,
         modifier = modifier,
-        enter = fadeIn(animationSpec = tween(delayMillis = effectiveDelay)) +
-                slideInVertically(animationSpec = tween(delayMillis = effectiveDelay)) { it / 4 }
+        enter = fadeIn(animationSpec = tween(durationMillis = tokens.normalDuration, delayMillis = effectiveDelay)) +
+                slideInVertically(animationSpec = tween(durationMillis = tokens.normalDuration, delayMillis = effectiveDelay)) { it / 4 }
     ) {
         content()
     }

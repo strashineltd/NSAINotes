@@ -478,7 +478,7 @@ fun WebBrowserDialog(
 
         AnimatedVisibility(
             visible = navigatingBack,
-            enter = fadeIn(tween(tokens.fastDuration)) + scaleIn(initialScale = 1.4f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)),
+            enter = fadeIn(tween(tokens.fastDuration)) + scaleIn(initialScale = 1.4f, animationSpec = spring(dampingRatio = tokens.springDamping)),
             exit = fadeOut(tween(tokens.fastDuration)),
             modifier = Modifier.align(Alignment.Center)
         ) {

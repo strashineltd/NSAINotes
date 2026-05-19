@@ -84,6 +84,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.nsai.notes.R
 import com.nsai.notes.domain.model.ThemeMode
+import com.nsai.notes.presentation.theme.LocalAnimationConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -491,14 +492,15 @@ private fun FullScreenQrViewer(
     state: QrViewerState?,
     onDismiss: () -> Unit
 ) {
+    val tokens = LocalAnimationConfig.current
     AnimatedVisibility(
         visible = state != null,
-        enter = fadeIn(tween(300)) +
+        enter = fadeIn(tween(tokens.normalDuration)) +
                 scaleIn(
                     initialScale = 0.85f,
-                    animationSpec = spring(dampingRatio = 0.55f, stiffness = 250f)
+                    animationSpec = spring(dampingRatio = tokens.springDamping, stiffness = tokens.springStiffness)
                 ),
-        exit = fadeOut(tween(150))
+        exit = fadeOut(tween(tokens.fastDuration))
     ) {
         Box(
             modifier = Modifier

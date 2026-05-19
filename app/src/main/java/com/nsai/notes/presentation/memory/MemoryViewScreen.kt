@@ -87,7 +87,7 @@ fun MemoryViewScreen(onNavigateBack: () -> Unit) {
                     AnimatedVisibility(
                         visible = true,
                         modifier = Modifier.animateItem(),
-                        enter = fadeIn(tween(delayMillis = delay)) + slideInVertically(tween(delayMillis = delay)) { it / 6 }
+                        enter = fadeIn(tween(durationMillis = tokens.normalDuration, delayMillis = delay)) + slideInVertically(tween(durationMillis = tokens.normalDuration, delayMillis = delay)) { it / 6 }
                     ) {
                         Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
                                 Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.Top) {

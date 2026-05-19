@@ -1,6 +1,5 @@
 package com.nsai.notes.presentation.notes
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -101,7 +100,7 @@ fun NoteEditScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(noteId) {
-        delay(100) // let enter animation settle before I/O
+        delay(100) // let enter animation (tokens.fastDuration) settle before I/O
         if (noteId != null) viewModel.onEvent(NoteEditEvent.LoadNote(noteId))
         viewModel.onEvent(NoteEditEvent.LoadTags)
     }

@@ -207,10 +207,10 @@ fun NSAINavGraph(
 
             composable(
                 route = Screen.AIModelSettings.route,
-                enterTransition = { fadeIn(animationSpec = tween(150)) },
-                exitTransition = { fadeOut(animationSpec = tween(120)) },
-                popEnterTransition = { fadeIn(animationSpec = tween(120)) },
-                popExitTransition = { fadeOut(animationSpec = tween(150)) }
+                enterTransition = { fadeIn(animationSpec = tween(tokens.fastDuration)) },
+                exitTransition = { fadeOut(animationSpec = tween(tokens.fastDuration)) },
+                popEnterTransition = { fadeIn(animationSpec = tween(tokens.fastDuration)) },
+                popExitTransition = { fadeOut(animationSpec = tween(tokens.fastDuration)) }
             ) {
                 AIModelSettingsScreen(
                     onNavigateBack = { navController.popBackStack() }

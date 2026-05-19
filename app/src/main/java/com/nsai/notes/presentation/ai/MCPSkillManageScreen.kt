@@ -166,7 +166,7 @@ private fun MCPServerList(
                 AnimatedVisibility(
                     visible = true,
                     modifier = Modifier.animateItem(),
-                    enter = fadeIn(tween(delayMillis = delay)) + slideInVertically(tween(delayMillis = delay)) { it / 6 }
+                    enter = fadeIn(tween(durationMillis = tokens.normalDuration, delayMillis = delay)) + slideInVertically(tween(durationMillis = tokens.normalDuration, delayMillis = delay)) { it / 6 }
                 ) {
                     MCPServerCard(
                         server = server,
@@ -329,7 +329,7 @@ private fun SkillPluginList(
                 AnimatedVisibility(
                     visible = true,
                     modifier = Modifier.animateItem(),
-                    enter = fadeIn(tween(delayMillis = delay)) + slideInVertically(tween(delayMillis = delay)) { it / 6 }
+                    enter = fadeIn(tween(durationMillis = tokens.normalDuration, delayMillis = delay)) + slideInVertically(tween(durationMillis = tokens.normalDuration, delayMillis = delay)) { it / 6 }
                 ) {
                     SkillCard(
                         skill = skill,
