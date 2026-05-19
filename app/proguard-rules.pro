@@ -1,12 +1,12 @@
 # Compose
--keep class androidx.compose.** { *; }
+# R8 correctly handles Compose classes - no explicit keep needed
 
 # Room
 -keep class * extends androidx.room.RoomDatabase
 -keep @androidx.room.Entity class *
 -dontwarn androidx.room.paging.**
 
-# Retrofit
+# Retrofit (if unused, can be removed)
 -keepattributes Signature, InnerClasses, EnclosingMethod
 -keepattributes RuntimeVisibleAnnotations, RuntimeVisibleParameterAnnotations
 -keepclassmembers,allowshrinking,allowobfuscation interface * {
@@ -21,7 +21,7 @@
 -keepattributes Signature
 -keepattributes *Annotation*
 -dontwarn sun.misc.**
--keep class com.google.gson.** { *; }
+-keep class com.google.gson.stream.** { *; }
 -keep class * extends com.google.gson.TypeAdapter
 -keep class * implements com.google.gson.TypeAdapterFactory
 -keep class * implements com.google.gson.JsonSerializer
@@ -49,10 +49,7 @@
 -keep class net.sqlcipher.** { *; }
 -dontwarn net.sqlcipher.**
 
-# Hilt
--keep class dagger.hilt.** { *; }
--keep class javax.inject.** { *; }
--keep class * extends dagger.hilt.android.internal.managers.ViewComponentManager$FragmentContextWrapper { *; }
+# Hilt - handled by Dagger code generation; no explicit keep needed
 
 # Markwon
 -keep class org.commonmark.** { *; }

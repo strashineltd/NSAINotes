@@ -1,5 +1,9 @@
 package com.nsai.notes.presentation.ai
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +39,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -57,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.nsai.notes.domain.model.MCPServer
 import com.nsai.notes.domain.model.SkillPlugin
+import com.nsai.notes.presentation.theme.LocalAnimationConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,7 +75,7 @@ fun MCPSkillManageScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Skill 管理", style = MaterialTheme.typography.titleLarge) },
+                title = { Text("插件管理", style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
@@ -83,13 +89,29 @@ fun MCPSkillManageScreen(
             )
         }
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
-        SkillPluginList(
-            skills = uiState.skillPlugins,
-            onAdd = { viewModel.onEvent(MCPSkillEvent.StartEditSkill(null)) },
-            onEdit = { viewModel.onEvent(MCPSkillEvent.StartEditSkill(it)) },
-            onDelete = { viewModel.onEvent(MCPSkillEvent.DeleteSkill(it)) }
-        )
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            TabRow(selectedTabIndex = uiState.activeTab) {
+                Tab(selected = uiState.activeTab == 0, onClick = { viewModel.onEvent(MCPSkillEvent.SwitchTab(0)) },
+                    text = { Text("插件") })
+                Tab(selected = uiState.activeTab == 1, onClick = { viewModel.onEvent(MCPSkillEvent.SwitchTab(1)) },
+                    text = { Text("MCP 服务器") })
+            }
+            when (uiState.activeTab) {
+                0 -> SkillPluginList(
+                    skills = uiState.skillPlugins,
+                    onAdd = { viewModel.onEvent(MCPSkillEvent.StartEditSkill(null)) },
+                    onEdit = { viewModel.onEvent(MCPSkillEvent.StartEditSkill(it)) },
+                    onDelete = { viewModel.onEvent(MCPSkillEvent.DeleteSkill(it)) }
+                )
+                1 -> MCPServerList(
+                    servers = uiState.mcpServers,
+                    testResults = uiState.testResults,
+                    onAdd = { viewModel.onEvent(MCPSkillEvent.StartEditServer(null)) },
+                    onEdit = { viewModel.onEvent(MCPSkillEvent.StartEditServer(it)) },
+                    onDelete = { viewModel.onEvent(MCPSkillEvent.DeleteServer(it)) },
+                    onTest = { viewModel.onEvent(MCPSkillEvent.TestServer(it)) }
+                )
+            }
         }
     }
 
@@ -124,6 +146,7 @@ private fun MCPServerList(
             }
         }
     } else {
+        val tokens = LocalAnimationConfig.current
         LazyColumn(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -139,13 +162,20 @@ private fun MCPServerList(
                 }
             }
             items(servers, key = { it.id }) { server ->
-                MCPServerCard(
-                    server = server,
-                    testResult = testResults[server.id],
-                    onEdit = { onEdit(server) },
-                    onDelete = { onDelete(server.id) },
-                    onTest = { onTest(server.id) }
-                )
+                val delay = (servers.indexOf(server) * tokens.staggeredDelay).coerceAtMost(tokens.normalDuration)
+                AnimatedVisibility(
+                    visible = true,
+                    modifier = Modifier.animateItem(),
+                    enter = fadeIn(tween(delayMillis = delay)) + slideInVertically(tween(delayMillis = delay)) { it / 6 }
+                ) {
+                    MCPServerCard(
+                        server = server,
+                        testResult = testResults[server.id],
+                        onEdit = { onEdit(server) },
+                        onDelete = { onDelete(server.id) },
+                        onTest = { onTest(server.id) }
+                    )
+                }
             }
         }
     }
@@ -279,6 +309,7 @@ private fun SkillPluginList(
             }
         }
     } else {
+        val tokens = LocalAnimationConfig.current
         LazyColumn(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -294,11 +325,18 @@ private fun SkillPluginList(
                 }
             }
             items(skills, key = { it.id }) { skill ->
-                SkillCard(
-                    skill = skill,
-                    onEdit = { onEdit(skill) },
-                    onDelete = { onDelete(skill.id) }
-                )
+                val delay = (skills.indexOf(skill) * tokens.staggeredDelay).coerceAtMost(tokens.normalDuration)
+                AnimatedVisibility(
+                    visible = true,
+                    modifier = Modifier.animateItem(),
+                    enter = fadeIn(tween(delayMillis = delay)) + slideInVertically(tween(delayMillis = delay)) { it / 6 }
+                ) {
+                    SkillCard(
+                        skill = skill,
+                        onEdit = { onEdit(skill) },
+                        onDelete = { onDelete(skill.id) }
+                    )
+                }
             }
         }
     }
@@ -326,6 +364,13 @@ private fun SkillCard(
             Spacer(Modifier.height(4.dp))
             Text(skill.category.label, style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+            Text(" · ${skill.pluginType.label}", style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+            if (skill.pluginUrl.isNotBlank()) {
+                Text(" · ${skill.pluginUrl.take(40)}${if (skill.pluginUrl.length > 40) "..." else ""}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f))
+            }
             if (skill.prompt.length > 80) {
                 Spacer(Modifier.height(4.dp))
                 Text(skill.prompt.take(80) + "...", style = MaterialTheme.typography.bodySmall,
@@ -358,7 +403,11 @@ private fun SkillEditDialog(
     var prompt by remember { mutableStateOf(skill.prompt) }
     var category by remember { mutableStateOf(skill.category) }
     var enabled by remember { mutableStateOf(skill.isEnabled) }
+    var pluginType by remember { mutableStateOf(skill.pluginType) }
+    var pluginUrl by remember { mutableStateOf(skill.pluginUrl) }
+    var pluginHeaders by remember { mutableStateOf(skill.pluginHeaders) }
     var expanded by remember { mutableStateOf(false) }
+    var typeExpanded by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -386,11 +435,34 @@ private fun SkillEditDialog(
                         }
                     }
                 }
+                // Plugin type
+                ExposedDropdownMenuBox(expanded = typeExpanded, onExpandedChange = { typeExpanded = it }) {
+                    OutlinedTextField(
+                        value = pluginType.label,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("类型") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
+                    )
+                    ExposedDropdownMenu(expanded = typeExpanded, onDismissRequest = { typeExpanded = false }) {
+                        SkillPlugin.PluginType.entries.forEach { t ->
+                            DropdownMenuItem(text = { Text(t.label) }, onClick = { pluginType = t; typeExpanded = false })
+                        }
+                    }
+                }
+                // Plugin URL + Headers (shown for external API and webhook types)
+                if (pluginType == SkillPlugin.PluginType.EXTERNAL_API || pluginType == SkillPlugin.PluginType.WEBHOOK) {
+                    OutlinedTextField(value = pluginUrl, onValueChange = { pluginUrl = it },
+                        label = { Text("接口地址") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    OutlinedTextField(value = pluginHeaders, onValueChange = { pluginHeaders = it },
+                        label = { Text("Headers (JSON)") }, modifier = Modifier.fillMaxWidth().height(72.dp), maxLines = 3)
+                }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onSave(skill.copy(name = name, description = description, prompt = prompt, category = category, isEnabled = enabled)) },
+                onClick = { onSave(skill.copy(name = name, description = description, prompt = prompt, category = category, isEnabled = enabled, pluginType = pluginType, pluginUrl = pluginUrl, pluginHeaders = pluginHeaders)) },
                 enabled = name.isNotBlank() && prompt.isNotBlank()
             ) { Text("保存") }
         },

@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.nsai.notes.BuildConfig
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,17 +21,18 @@ data class FrameMetrics(
 @Singleton
 class FrameMonitor @Inject constructor() {
     private val choreographer = Choreographer.getInstance()
-    private var frameStartTime = 0L
-    private var droppedFrames = 0
-    private var totalFrames = 0
-    private var running = false
-    private var frameCount = 0
-    private var aggregateDropped = 0
-    private var aggregateTotal = 0
+    @Volatile private var frameStartTime = 0L
+    @Volatile private var droppedFrames = 0
+    @Volatile private var totalFrames = 0
+    @Volatile private var running = false
+    @Volatile private var frameCount = 0
+    @Volatile private var aggregateDropped = 0
+    @Volatile private var aggregateTotal = 0
+    @Volatile private var sampleInterval = 300
 
-    private val recentDropRates: ArrayDeque<Float> = ArrayDeque(10)
+    private val recentDropRates = ArrayDeque<Float>(10)
 
-    private var listener: ((FrameMetrics) -> Unit)? = null
+    @Volatile private var listener: ((FrameMetrics) -> Unit)? = null
 
     private val _metrics = MutableSharedFlow<FrameMetrics>(
         replay = 0,
@@ -42,6 +44,7 @@ class FrameMonitor @Inject constructor() {
     private val _rollingDropRate = MutableStateFlow(0f)
     val rollingDropRate: StateFlow<Float> = _rollingDropRate.asStateFlow()
 
+    @Synchronized
     fun setOnMetricsReport(callback: (FrameMetrics) -> Unit) {
         listener = callback
     }
@@ -51,7 +54,7 @@ class FrameMonitor @Inject constructor() {
             if (frameStartTime > 0) {
                 val elapsedMs = (frameTimeNanos - frameStartTime) / 1_000_000
                 totalFrames++
-                if (elapsedMs > 30) { // Relax jank threshold slightly for lower overhead
+                if (elapsedMs > 22) { // 60fps target=16.6ms; 22ms allows 1-frame buffer
                     droppedFrames++
                 }
                 frameCount++
@@ -62,8 +65,7 @@ class FrameMonitor @Inject constructor() {
             }
             frameStartTime = frameTimeNanos
             if (running) {
-                if (sampleInterval > 400) {
-                    // In release/lower-sample mode, use delayed callback for lower CPU
+                if (sampleInterval > 600) { // Deferred callback mode for lower CPU
                     choreographer.postFrameCallbackDelayed(frameCallback, 4L)
                 } else {
                     choreographer.postFrameCallback(frameCallback)
@@ -83,26 +85,29 @@ class FrameMonitor @Inject constructor() {
         _metrics.tryEmit(report)
         aggregateDropped += droppedFrames
         aggregateTotal += totalFrames
-        recentDropRates.addLast(report.dropRate)
-        if (recentDropRates.size > 6) recentDropRates.removeFirst()
-        _rollingDropRate.value = if (recentDropRates.isEmpty()) 0f else recentDropRates.average().toFloat()
+        synchronized(recentDropRates) {
+            recentDropRates.addLast(report.dropRate)
+            if (recentDropRates.size > 6) recentDropRates.removeFirst()
+            _rollingDropRate.value = if (recentDropRates.isEmpty()) 0f else recentDropRates.average().toFloat()
+        }
         listener?.invoke(report)
     }
 
-    fun start(sampleInterval: Int = if (com.nsai.notes.BuildConfig.DEBUG) 300 else 900) {
+    @Synchronized
+    fun start(sampleInterval: Int = 120) { // 2s intervals for responsive jank detection
         if (running) return
         running = true
         this.sampleInterval = sampleInterval
         choreographer.postFrameCallback(frameCallback)
     }
 
-    private var sampleInterval = 300
-
+    @Synchronized
     fun stop() {
         running = false
         choreographer.removeFrameCallback(frameCallback)
     }
 
+    @Synchronized
     fun snapshot(): FrameMetrics = FrameMetrics(
         droppedFrames = aggregateDropped,
         totalFrames = aggregateTotal.coerceAtLeast(1),

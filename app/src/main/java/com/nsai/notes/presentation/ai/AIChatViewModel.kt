@@ -5,10 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nsai.notes.data.local.datastore.SettingsDataStore
 import com.nsai.notes.domain.model.AIProvider
+import com.nsai.notes.domain.model.AIMode
 import com.nsai.notes.domain.model.ChatMessage
 import com.nsai.notes.domain.usecase.ai.AskAIUseCase
 import com.nsai.notes.domain.usecase.ai.SummarizeNoteUseCase
 import com.nsai.notes.domain.usecase.note.GetNoteUseCase
+import com.nsai.notes.domain.repository.NoteRepository
+import com.nsai.notes.domain.model.Note
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,7 +32,8 @@ data class AIChatUiState(
     val searchEngine: String = "BAIDU",
     val searchEngineCustomUrl: String = "",
     val bookmarks: List<SettingsDataStore.Bookmark> = emptyList(),
-    val searchHistory: List<String> = emptyList()
+    val searchHistory: List<String> = emptyList(),
+    val currentMode: AIMode = AIMode.QUICK
 )
 
 sealed class AIChatEvent {
@@ -38,6 +42,7 @@ sealed class AIChatEvent {
     data object SendMessage : AIChatEvent()
     data object Summarize : AIChatEvent()
     data class SelectProvider(val provider: AIProvider) : AIChatEvent()
+    data class SelectMode(val mode: AIMode) : AIChatEvent()
     data object ClearError : AIChatEvent()
     data object DismissSummary : AIChatEvent()
     data class SetSearchEngine(val engine: String) : AIChatEvent()
@@ -46,6 +51,7 @@ sealed class AIChatEvent {
     data class RemoveBookmark(val url: String) : AIChatEvent()
     data class AddSearchHistory(val query: String) : AIChatEvent()
     data object ClearSearchHistory : AIChatEvent()
+    data class AppendToNote(val text: String) : AIChatEvent()
 }
 
 @HiltViewModel
@@ -53,6 +59,7 @@ class AIChatViewModel @Inject constructor(
     private val askAIUseCase: AskAIUseCase,
     private val summarizeNoteUseCase: SummarizeNoteUseCase,
     private val getNoteUseCase: GetNoteUseCase,
+    private val noteRepository: NoteRepository,
     private val settingsDataStore: SettingsDataStore
 ) : ViewModel() {
 
@@ -112,6 +119,23 @@ class AIChatViewModel @Inject constructor(
             is AIChatEvent.RemoveBookmark -> removeBookmark(event.url)
             is AIChatEvent.AddSearchHistory -> addSearchHistory(event.query)
             AIChatEvent.ClearSearchHistory -> clearSearchHistory()
+            is AIChatEvent.AppendToNote -> appendToNote(event.text)
+            is AIChatEvent.SelectMode -> selectMode(event.mode)
+        }
+    }
+
+    private fun selectMode(mode: AIMode) {
+        _uiState.value = _uiState.value.copy(currentMode = mode)
+    }
+
+    private fun appendToNote(text: String) {
+        val id = noteId ?: return
+        viewModelScope.launch {
+            val note = getNoteUseCase(id).first() ?: return@launch
+            noteRepository.updateNote(note.copy(
+                content = if (note.content.isNotBlank()) "${note.content}\n\n$text" else text,
+                updatedAt = System.currentTimeMillis()
+            ))
         }
     }
 
@@ -196,14 +220,16 @@ class AIChatViewModel @Inject constructor(
             val result = askAIUseCase(
                 question = text,
                 provider = _uiState.value.selectedProvider,
-                noteContext = note
+                noteContext = note,
+                mode = _uiState.value.currentMode
             )
             result.fold(
                 onSuccess = { response ->
                     val assistantMessage = ChatMessage(
                         role = ChatMessage.Role.ASSISTANT,
                         content = response.content,
-                        reasoningContent = response.reasoning
+                        reasoningContent = response.reasoning,
+                        isThinking = _uiState.value.currentMode == AIMode.THINK
                     )
                     _uiState.value = _uiState.value.copy(
                         messages = _uiState.value.messages + assistantMessage,

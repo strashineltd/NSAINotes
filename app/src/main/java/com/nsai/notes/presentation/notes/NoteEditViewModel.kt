@@ -1,5 +1,6 @@
 package com.nsai.notes.presentation.notes
 
+import android.util.Log
 import androidx.compose.runtime.Stable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -65,6 +66,8 @@ class NoteEditViewModel @Inject constructor(
     val uiState: StateFlow<NoteEditUiState> = _uiState.asStateFlow()
 
     private var autoSaveJob: Job? = null
+    private var ocrJob: Job? = null
+    private var describeImageJob: Job? = null
     private var currentNoteId: Long? = null
 
     suspend fun saveAndReturn(): Long? {
@@ -166,7 +169,7 @@ class NoteEditViewModel @Inject constructor(
             try {
                 val tags = getAllTagsUseCase()
                 _uiState.value = _uiState.value.copy(tags = tags)
-            } catch (_: Exception) {}
+            } catch (e: Exception) { Log.w("NoteEditVM", "Failed to load tags", e) }
         }
     }
 
@@ -179,7 +182,8 @@ class NoteEditViewModel @Inject constructor(
     }
 
     private fun extractTextFromImage(bitmap: Bitmap) {
-        viewModelScope.launch {
+        ocrJob?.cancel()
+        ocrJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             try {
                 val text = extractTextUseCase.execute(bitmap)
@@ -188,12 +192,15 @@ class NoteEditViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(content = newContent, isLoading = false)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
+            } finally {
+                if (!bitmap.isRecycled) bitmap.recycle()
             }
         }
     }
 
     private fun describeImage(bitmap: Bitmap) {
-        viewModelScope.launch {
+        describeImageJob?.cancel()
+        describeImageJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             try {
                 val description = describeImageUseCase.execute(bitmap, AIProvider.GLM)
@@ -202,6 +209,8 @@ class NoteEditViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(content = newContent, isLoading = false)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
+            } finally {
+                if (!bitmap.isRecycled) bitmap.recycle()
             }
         }
     }

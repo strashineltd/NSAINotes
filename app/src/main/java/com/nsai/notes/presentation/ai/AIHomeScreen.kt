@@ -1,5 +1,6 @@
 package com.nsai.notes.presentation.ai
 
+import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -12,6 +13,8 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -88,6 +91,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -148,7 +152,12 @@ fun AIHomeScreen(
     val hasConversation = uiState.messages.size > 1
 
     LaunchedEffect(uiState.messages.size) {
-        if (uiState.messages.isNotEmpty()) try { chatListState.animateScrollToItem(uiState.messages.size - 1) } catch (_: Exception) {}
+        if (uiState.messages.isNotEmpty()) {
+            val lastVisible = chatListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            if (lastVisible >= uiState.messages.size - 3) {
+                chatListState.scrollToItem(uiState.messages.size - 1)
+            }
+        }
     }
     LaunchedEffect(uiState.error) {
         uiState.error?.let { snackbarHostState.showSnackbar(it); viewModel.onEvent(AIHomeEvent.ClearError) }
@@ -256,8 +265,8 @@ fun AIHomeScreen(
                     }
                 },
                 actions = {
-                    // Membership badge
-                    val licenseActive = viewModel.isLicenseActive()
+                    // Membership badge — temporarily removed
+                    /* val licenseActive = viewModel.isLicenseActive()
                     IconButton(onClick = onNavigateToActivation) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(Icons.Default.Star, "会员",
@@ -269,7 +278,7 @@ fun AIHomeScreen(
                                     .background(if (licenseActive) Color(0xFF4CAF50) else Color(0xFFBDBDBD))
                             )
                         }
-                    }
+                    } */
                     IconButton(onClick = { viewModel.onEvent(AIHomeEvent.ToggleHistory) }) {
                         Icon(Icons.Default.History, "历史",
                             tint = if (uiState.showHistory) MaterialTheme.colorScheme.primary
@@ -296,7 +305,7 @@ fun AIHomeScreen(
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 AnimatedContent(
                     targetState = hasConversation || uiState.isLoading,
-                    transitionSpec = { fadeIn(tween(120)) togetherWith fadeOut(tween(100)) },
+                    transitionSpec = { fadeIn(tween(tokens.fastDuration)) togetherWith fadeOut(tween(tokens.fastDuration)) },
                     label = "content"
                 ) { showChat ->
                     if (showChat) {
@@ -359,10 +368,8 @@ fun AIHomeScreen(
                 },
                 onTextChange = { if (isImageMode) viewModel.onEvent(AIHomeEvent.UpdateImagePrompt(it)) else viewModel.onEvent(AIHomeEvent.UpdateInput(it)) },
                 onSend = {
-                    // License check
-                    if (!viewModel.isLicenseActive()) {
-                        showUpgradeDialog = true
-                    } else if (isImageMode) {
+                    // License check temporarily disabled
+                    if (isImageMode) {
                         viewModel.onEvent(AIHomeEvent.GenerateImage)
                     } else {
                         viewModel.onEvent(AIHomeEvent.SendMessage)
@@ -375,16 +382,22 @@ fun AIHomeScreen(
     }
 
     // History panel (after Scaffold for z-order)
-    if (uiState.showHistory) ConversationHistoryPanel(
-        conversations = uiState.conversationHistory, currentId = uiState.currentConversationId,
-        onSelect = { viewModel.onEvent(AIHomeEvent.LoadConversation(it)) },
-        onDelete = { viewModel.onEvent(AIHomeEvent.DeleteConversation(it)) },
-        onNew = { viewModel.onEvent(AIHomeEvent.NewConversation) },
-        onDismiss = { viewModel.onEvent(AIHomeEvent.ToggleHistory) }
-    )
+    AnimatedVisibility(
+        visible = uiState.showHistory,
+        enter = slideInVertically(tween(tokens.fastDuration)) { -it } + fadeIn(tween(tokens.fastDuration)),
+        exit = slideOutVertically(tween(tokens.fastDuration)) { -it } + fadeOut(tween(tokens.fastDuration))
+    ) {
+        ConversationHistoryPanel(
+            conversations = uiState.conversationHistory, currentId = uiState.currentConversationId,
+            onSelect = { viewModel.onEvent(AIHomeEvent.LoadConversation(it)) },
+            onDelete = { viewModel.onEvent(AIHomeEvent.DeleteConversation(it)) },
+            onNew = { viewModel.onEvent(AIHomeEvent.NewConversation) },
+            onDismiss = { viewModel.onEvent(AIHomeEvent.ToggleHistory) }
+        )
+    }
 
-    // Upgrade dialog
-    if (showUpgradeDialog) {
+    // Upgrade dialog — temporarily removed
+    /* if (showUpgradeDialog) {
         AlertDialog(
             onDismissRequest = { showUpgradeDialog = false },
             title = { Text("套餐购买或激活", style = MaterialTheme.typography.titleLarge) },
@@ -408,10 +421,11 @@ fun AIHomeScreen(
                 }) { Text("套餐购买") }
             },
             dismissButton = {
-                TextButton(onClick = { showUpgradeDialog = false }) { Text("稍后") }
-            }
+                TextButton(onClick = { showUpgradeDialog = false }) { Text("取消") }
+            },
+            shape = RoundedCornerShape(16.dp)
         )
-    }
+    } */
 
     // Browser overlay
     if (showBrowser) WebBrowserDialog(
@@ -540,10 +554,12 @@ private fun ChatView(
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        items(messages, key = { it.timestamp }) { msg ->
-            ChatBubble(msg, onUrlClick,
+            items(messages, key = { it.timestamp }) { msg ->
+            Box(Modifier.animateItem()) {
+                ChatBubble(msg, onUrlClick,
                 onSaveAsNote = { content -> onSaveAsNote(content) },
                 onRetry = { onRetry() })
+            }
         }
         if (generatedImage != null) {
             item(key = "generated_image") {
@@ -576,12 +592,13 @@ private fun ChatView(
 
 @Composable
 private fun ThinkingDots(modifier: Modifier = Modifier) {
+    val tokens = LocalAnimationConfig.current
     val transition = rememberInfiniteTransition(label = "dots")
     Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         listOf(0, 150, 300).forEach { d ->
             val scale by transition.animateFloat(
                 initialValue = 0.3f, targetValue = 1f,
-                animationSpec = infiniteRepeatable(tween(600, delayMillis = d), RepeatMode.Reverse),
+                animationSpec = infiniteRepeatable(tween(tokens.normalDuration * 2, delayMillis = d), RepeatMode.Reverse),
                 label = "dot$d"
             )
             Box(Modifier.size(5.dp).scale(scale).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)))
@@ -599,6 +616,19 @@ private fun ChatBubble(message: ChatMessage, onUrlClick: (String) -> Unit = {}, 
     else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
     val shape = if (isUser) RoundedCornerShape(16.dp, 4.dp, 16.dp, 16.dp)
     else RoundedCornerShape(4.dp, 16.dp, 16.dp, 16.dp)
+
+    // Typewriter effect for AI messages
+    var displayedChars by remember(message.content) { mutableStateOf(if (isUser) message.content.length else 1) }
+    if (!isUser) {
+        LaunchedEffect(message.content) {
+            val target = message.content.length
+            while (displayedChars < target) {
+                delay(15L)
+                displayedChars = (displayedChars + 4).coerceAtMost(target)
+            }
+        }
+    }
+    val typewriterDone = displayedChars >= message.content.length
 
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalAlignment = alignment) {
         if (!isUser) {
@@ -633,12 +663,20 @@ private fun ChatBubble(message: ChatMessage, onUrlClick: (String) -> Unit = {}, 
                                 .padding(horizontal = 14.dp, vertical = 8.dp))
                     }
                 }
-                androidx.compose.foundation.text.ClickableText(
-                    text = buildUrlText(message.content),
-                    style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                    onClick = { o -> com.nsai.notes.presentation.ai.getUrlAt(message.content, o)?.let { onUrlClick(it) } }
-                )
+                if (isUser || typewriterDone) {
+                    androidx.compose.foundation.text.ClickableText(
+                        text = buildUrlText(message.content),
+                        style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        onClick = { o -> com.nsai.notes.presentation.ai.getUrlAt(message.content, o)?.let { onUrlClick(it) } }
+                    )
+                } else {
+                    Text(
+                        message.content.take(displayedChars),
+                        style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                    )
+                }
             }
         }
         // Reply actions for AI messages
@@ -733,7 +771,7 @@ private fun ConversationHistoryPanel(
                 } else LazyColumn(Modifier.weight(1f)) {
                     items(conversations, key = { it.id }) { conv ->
                         Card(
-                            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clickable { onSelect(conv) },
+                            Modifier.animateItem().fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clickable { onSelect(conv) },
                             shape = RoundedCornerShape(12.dp),
                             colors = CardDefaults.cardColors(containerColor = if (conv.id == currentId)
                                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)

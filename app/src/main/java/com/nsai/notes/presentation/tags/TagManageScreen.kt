@@ -104,7 +104,7 @@ fun TagManageScreen(
             ) {
                 itemsIndexed(uiState.tags, key = { _, tag -> tag.id }) { index, tag ->
                     val delay = (index * 50).coerceAtMost(300)
-                    AnimatedTagItem(delay = delay) {
+                    AnimatedTagItem(delay = delay, modifier = Modifier.animateItem()) {
                         Card(
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -140,12 +140,14 @@ fun TagManageScreen(
 @Composable
 private fun AnimatedTagItem(
     delay: Int,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
     val tokens = LocalAnimationConfig.current
     val effectiveDelay = tokens.staggeredDelay.takeIf { delay > 0 }?.let { it * (delay / 50).coerceAtMost(6) } ?: 0
     AnimatedVisibility(
         visible = true,
+        modifier = modifier,
         enter = fadeIn(animationSpec = tween(delayMillis = effectiveDelay)) +
                 slideInVertically(animationSpec = tween(delayMillis = effectiveDelay)) { it / 4 }
     ) {

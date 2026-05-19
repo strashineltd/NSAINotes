@@ -120,7 +120,7 @@ fun WebBrowserDialog(
 
     val animatedOffset by animateFloatAsState(
         targetValue = if (edgeArmed || swipeOffset > 20f) swipeTarget.coerceAtLeast(0f) else -100f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+        animationSpec = spring(dampingRatio = tokens.springDamping, stiffness = tokens.springStiffness),
         label = "swipeIndicator"
     )
 

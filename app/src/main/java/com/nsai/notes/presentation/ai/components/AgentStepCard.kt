@@ -1,6 +1,7 @@
 package com.nsai.notes.presentation.ai.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -36,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.nsai.notes.presentation.theme.LocalAnimationConfig
 
 @Composable
 fun AgentStepCard(
@@ -45,6 +47,7 @@ fun AgentStepCard(
     observation: String?,
     modifier: Modifier = Modifier
 ) {
+    val tokens = LocalAnimationConfig.current
     var expanded by remember { mutableStateOf(true) }
 
     Card(
@@ -68,8 +71,8 @@ fun AgentStepCard(
             }
 
             AnimatedVisibility(expanded,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
+                enter = expandVertically(tween(tokens.fastDuration)) + fadeIn(tween(tokens.fastDuration)),
+                exit = shrinkVertically(tween(tokens.fastDuration)) + fadeOut(tween(tokens.fastDuration))
             ) {
                 Column(modifier = Modifier.padding(top = 8.dp)) {
                     // Thought

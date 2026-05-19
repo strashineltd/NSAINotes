@@ -79,7 +79,9 @@ class SecurityChecker @Inject constructor() {
         return try {
             val process = Runtime.getRuntime().exec(arrayOf("which", "su"))
             process.waitFor()
-            process.exitValue() == 0
+            val exitVal = process.exitValue()
+            process.destroy()
+            exitVal == 0
         } catch (_: Exception) { false }
     }
 
@@ -98,7 +100,9 @@ class SecurityChecker @Inject constructor() {
     private fun detectSuspiciousPorts(): Boolean {
         return try {
             val process = Runtime.getRuntime().exec(arrayOf("cat", "/proc/net/tcp"))
-            val output = process.inputStream.bufferedReader().readText()
+            val output = process.inputStream.bufferedReader().use { it.readText() }
+            process.waitFor()
+            process.destroy()
             // Frida default port 27042
             val fridaHexPort = "69A2" // 27042 in hex
             output.contains(fridaHexPort)

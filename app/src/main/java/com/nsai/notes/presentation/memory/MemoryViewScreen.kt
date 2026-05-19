@@ -1,5 +1,9 @@
 package com.nsai.notes.presentation.memory
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,6 +22,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nsai.notes.data.local.memory.MemoryDao
 import com.nsai.notes.data.local.memory.MemoryEntity
+import com.nsai.notes.presentation.theme.LocalAnimationConfig
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -58,6 +63,7 @@ fun MemoryViewScreen(onNavigateBack: () -> Unit) {
     Scaffold(
         topBar = { TopAppBar(title = { Text("AI 记忆管理") }, navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") } }) }
     ) { padding ->
+        val tokens = LocalAnimationConfig.current
         val grouped = uiState.memories.groupBy { it.type }
         if (uiState.memories.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
@@ -65,19 +71,35 @@ fun MemoryViewScreen(onNavigateBack: () -> Unit) {
             }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                var itemIndex = -1
                 grouped.forEach { (type, memories) ->
-                    item(key = "header_$type") { Text(typeDisplayName(type), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp)) }
+                    item(key = "header_$type") {
+                        AnimatedVisibility(
+                            visible = true,
+                            enter = fadeIn(tween(tokens.fastDuration))
+                        ) {
+                            Text(typeDisplayName(type), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
+                        }
+                    }
                     items(memories, key = { it.id }) { memory ->
+                        itemIndex++
+                        val delay = (itemIndex * tokens.staggeredDelay).coerceAtMost(tokens.normalDuration)
+                    AnimatedVisibility(
+                        visible = true,
+                        modifier = Modifier.animateItem(),
+                        enter = fadeIn(tween(delayMillis = delay)) + slideInVertically(tween(delayMillis = delay)) { it / 6 }
+                    ) {
                         Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
-                            Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.Top) {
-                                Icon(typeIcon(type), null, Modifier.size(20.dp).padding(top = 2.dp), tint = typeColor(type))
-                                Spacer(Modifier.width(12.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(memory.key, style = MaterialTheme.typography.bodyMedium)
-                                    Text(memory.content, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-                                }
-                                IconButton(onClick = { viewModel.delete(memory.id) }, Modifier.size(28.dp)) {
-                                    Icon(Icons.Default.Delete, "删除", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f))
+                                Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.Top) {
+                                    Icon(typeIcon(type), null, Modifier.size(20.dp).padding(top = 2.dp), tint = typeColor(type))
+                                    Spacer(Modifier.width(12.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(memory.key, style = MaterialTheme.typography.bodyMedium)
+                                        Text(memory.content, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                    }
+                                    IconButton(onClick = { viewModel.delete(memory.id) }, Modifier.size(28.dp)) {
+                                        Icon(Icons.Default.Delete, "删除", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f))
+                                    }
                                 }
                             }
                         }

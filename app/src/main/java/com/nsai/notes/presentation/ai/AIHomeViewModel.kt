@@ -1,5 +1,6 @@
 package com.nsai.notes.presentation.ai
 
+import android.util.Log
 import androidx.compose.runtime.Stable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -21,6 +22,7 @@ import com.nsai.notes.domain.repository.NoteRepository
 import com.nsai.notes.domain.usecase.ai.AskAIUseCase
 import com.nsai.notes.domain.usecase.note.GetAllNotesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -107,11 +109,14 @@ class AIHomeViewModel @Inject constructor(
     val uiState: StateFlow<AIHomeUiState> = _uiState.asStateFlow()
 
     init {
-        loadNotes()
-        loadSelectedProvider()
-        loadHistory()
-        loadSearchEngine()
-        loadBookmarksAndHistory()
+        loadSelectedProvider()        // needed for UI display
+        loadSearchEngine()            // needed for search settings
+        // Deferred: avoids blocking first frame composition
+        viewModelScope.launch {
+            loadNotes()
+            loadHistory()
+            loadBookmarksAndHistory()
+        }
     }
 
     private fun loadSearchEngine() {
@@ -285,7 +290,12 @@ class AIHomeViewModel @Inject constructor(
     }
 
     private fun loadNotes() {
-        viewModelScope.launch { try { _uiState.value = _uiState.value.copy(recentNotes = getAllNotesUseCase().first().take(10)) } catch (_: Exception) {} }
+        viewModelScope.launch(Dispatchers.Default) {
+            try {
+                val notes = getAllNotesUseCase().first().take(10)
+                _uiState.value = _uiState.value.copy(recentNotes = notes)
+            } catch (e: Exception) { Log.w("AIHomeVM", "Failed to load recent notes", e) }
+        }
     }
 
     private fun clearAllModes() {
@@ -354,6 +364,7 @@ class AIHomeViewModel @Inject constructor(
                         )
                         saveCurrentConversation()
                     } catch (e: Exception) {
+                        Log.e("AIHomeVM", "Agent failed", e)
                         _uiState.value = _uiState.value.copy(isLoading = false, error = e.message ?: "Agent执行失败")
                     }
                     return@launch

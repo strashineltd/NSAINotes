@@ -1,14 +1,15 @@
 package com.nsai.notes.performance
 
 import android.os.SystemClock
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class InputThrottler @Inject constructor() {
 
-    private val navigationThrottleMap = mutableMapOf<String, Long>()
-    private val clickThrottleMap = mutableMapOf<String, Long>()
+    private val navigationThrottleMap = ConcurrentHashMap<String, Long>()
+    private val clickThrottleMap = ConcurrentHashMap<String, Long>()
 
     private val navThrottleMs = 300L
     private val clickThrottleMs = 200L

@@ -8,6 +8,7 @@ import java.io.StringWriter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.Collections
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -32,14 +33,14 @@ class CrashLogService @Inject constructor(
     private val crashLogDir = File(context.filesDir, "crash_logs")
     private val crashLogFile = File(crashLogDir, "crash_history.txt")
 
-    var lastScreen: String = "unknown"
-    var lastAction: String = "none"
-    var lastInput: String = ""
+    @Volatile var lastScreen: String = "unknown"
+    @Volatile var lastAction: String = "none"
+    @Volatile var lastInput: String = ""
 
-    private val crashRecords = mutableListOf<CrashRecord>()
+    private val crashRecords = Collections.synchronizedList(mutableListOf<CrashRecord>())
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
 
-    private var historyLoaded = false
+    @Volatile private var historyLoaded = false
 
     init {
         crashLogDir.mkdirs()

@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import android.content.Context
 import android.widget.Toast
@@ -119,13 +122,8 @@ class MainActivity : ComponentActivity() {
                 window?.setSystemGestureExclusionRects(listOf(android.graphics.Rect(0, 0, 0, 0)))
             }
         }
-        // Block overlay attacks on API 26+
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            window?.setFlags(
-                android.view.WindowManager.LayoutParams.FLAG_SECURE,
-                android.view.WindowManager.LayoutParams.FLAG_SECURE
-            )
-        }
+        // Tapjacking prevention: FLAG_SECURE removed to allow screenshots.
+        // Overlay click interception is handled by AndroidManifest filterTouchesWhenObscured.
     }
 
     fun setSecureWindow(secure: Boolean = true) {
@@ -138,8 +136,8 @@ class MainActivity : ComponentActivity() {
 
     private fun hideFromRecentApps() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            // Android 14+: hide sensitive content from app switcher
-            window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+            // Android 14+: hide recents preview without blocking screenshots
+            setRecentsScreenshotEnabled(false)
         }
     }
 
@@ -266,25 +264,77 @@ private fun PrivacyDialog(
         onDismissRequest = {},
         title = { Text("隐私许可协议") },
         text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text("欢迎使用 NSAI笔记 v${BuildConfig.VERSION_NAME}！", style = MaterialTheme.typography.titleMedium)
+            Column(
+                modifier = Modifier.fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text("欢迎使用 NSAI笔记 v${BuildConfig.VERSION_NAME}！",
+                    style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(10.dp))
+                Text("本应用尊重并保护您的隐私，请阅读以下核心条款：",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
                 Spacer(Modifier.height(12.dp))
-                Text("本应用尊重并保护您的隐私：")
+
+                // 数据存储
+                Text("📱 数据存储",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text("所有笔记、文件、对话记录仅存储在您的设备本地，不会自动上传至任何服务器。",
+                    style = MaterialTheme.typography.bodySmall)
                 Spacer(Modifier.height(8.dp))
-                Text("• 所有笔记数据仅存储在您的设备本地，不会上传至任何服务器。")
+
+                // 信息收集
+                Text("🔒 信息收集",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
-                Text("• 应用不会收集任何个人身份信息、位置信息或设备信息。")
-                Spacer(Modifier.height(4.dp))
-                Text("• AI功能需自行配置第三方大模型API Key，对话内容会直接发送到您选择的AI服务商，本应用不作中转或存储。")
-                Spacer(Modifier.height(4.dp))
-                Text("• MCP服务器连接由您自行配置，连接信息仅存储在本地。")
-                Spacer(Modifier.height(4.dp))
-                Text("• 语音识别使用设备本地语音引擎，不会上传音频数据。")
+                Text("本应用不收集任何个人身份信息（姓名、邮箱、电话等），不收集位置信息、设备信息或使用行为数据。不含第三方分析、广告或追踪 SDK。",
+                    style = MaterialTheme.typography.bodySmall)
                 Spacer(Modifier.height(8.dp))
+
+                // AI 功能
+                Text("🤖 AI 功能说明",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text("AI 功能需您自行配置第三方大模型 API Key。对话内容直接发送至您选择的 AI 服务商处理，本应用不作中转、记录或审查。建议您查阅对应 AI 服务商的隐私政策。",
+                    style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(8.dp))
+
+                // 安全保护
+                Text("🛡️ 安全保护",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text("API Key 和隐私笔记使用设备级安全加密存储。隐私笔记支持密码锁和生物识别（指纹）保护，指纹数据由设备安全硬件处理，不离开您的设备。系统云备份默认排除 API Key 和隐私配置文件。",
+                    style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(8.dp))
+
+                // 联系方式
+                Text("📢 更新与联系",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text("官方 QQ 频道：strashine26518",
+                    style = MaterialTheme.typography.bodySmall)
+                Text("GitHub：github.com/strashineltd/NSAINotes",
+                    style = MaterialTheme.typography.bodySmall)
+                Text("反馈问题请通过 GitHub Issues 提交",
+                    style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(12.dp))
+
                 Text(
-                    "点击「同意并继续」即表示您已知晓并接受以上条款。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    "在「设置 → 隐私协议」可查看完整版隐私协议。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "点击「同意并继续」即表示您已知晓并接受以上全部条款。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )
             }
         },

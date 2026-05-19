@@ -1,5 +1,6 @@
 package com.nsai.notes.presentation.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -26,6 +27,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import android.os.SystemClock
+import android.widget.Toast
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -67,6 +73,19 @@ fun NSAINavGraph(
         Screen.AIHome.route,
         Screen.Files.route
     )
+
+    // Double-back to exit — only on root tab screens
+    var backPressTime by remember { mutableLongStateOf(0L) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    BackHandler(enabled = showBottomBar) {
+        val now = SystemClock.elapsedRealtime()
+        if (now - backPressTime < 2000) {
+            (context as? android.app.Activity)?.finish()
+        } else {
+            backPressTime = now
+            Toast.makeText(context, "再按一次退出应用", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     LaunchedEffect(currentRoute) {
         currentRoute?.let { route ->
@@ -198,7 +217,13 @@ fun NSAINavGraph(
                 )
             }
 
-            composable(Screen.AIHome.route) {
+            composable(
+                route = Screen.AIHome.route,
+                enterTransition = { fadeIn(animationSpec = tween(tokens.normalDuration)) },
+                exitTransition = { fadeOut(animationSpec = tween(tokens.fastDuration)) },
+                popEnterTransition = { fadeIn(animationSpec = tween(tokens.normalDuration)) },
+                popExitTransition = { fadeOut(animationSpec = tween(tokens.fastDuration)) }
+            ) {
                 AIHomeScreen(
                     onNavigateToNoteChat = { noteId ->
                         navController.navigate(Screen.AIChat.createRoute(noteId))
@@ -209,9 +234,7 @@ fun NSAINavGraph(
                     onNavigateToMCPSkill = {
                         navController.navigate(Screen.MCPSkill.route)
                     },
-                    onNavigateToActivation = {
-                        navController.navigate(Screen.Activation.route)
-                    }
+                    // Activation navigation temporarily removed
                 )
             }
 
@@ -258,7 +281,34 @@ fun NSAINavGraph(
 
             composable(
                 route = Screen.AIChat.route,
-                arguments = listOf(navArgument("noteId") { type = NavType.LongType })
+                arguments = listOf(navArgument("noteId") { type = NavType.LongType }),
+                enterTransition = {
+                    scaleIn(
+                        animationSpec = spring(
+                            dampingRatio = tokens.springDamping,
+                            stiffness = tokens.springStiffness
+                        ),
+                        initialScale = 0.3f
+                    ) + fadeIn(animationSpec = tween(tokens.fastDuration))
+                },
+                exitTransition = {
+                    scaleOut(
+                        animationSpec = tween(tokens.fastDuration),
+                        targetScale = 0.3f
+                    ) + fadeOut(animationSpec = tween(tokens.fastDuration))
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(tokens.normalDuration))
+                },
+                popExitTransition = {
+                    scaleOut(
+                        animationSpec = spring(
+                            dampingRatio = tokens.springDamping,
+                            stiffness = tokens.springStiffness
+                        ),
+                        targetScale = 0.8f
+                    ) + fadeOut(animationSpec = tween(tokens.fastDuration))
+                }
             ) { entry ->
                 val noteId = entry.arguments?.getLong("noteId") ?: return@composable
                 AIChatScreen(
@@ -267,25 +317,74 @@ fun NSAINavGraph(
                 )
             }
 
-            composable(Screen.Tags.route) {
+            composable(
+                route = Screen.Tags.route,
+                enterTransition = {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = tween(tokens.normalDuration)
+                    ) + fadeIn(animationSpec = tween(tokens.normalDuration))
+                },
+                exitTransition = { fadeOut(animationSpec = tween(tokens.fastDuration)) },
+                popEnterTransition = { fadeIn(animationSpec = tween(tokens.normalDuration)) },
+                popExitTransition = {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = tween(tokens.normalDuration)
+                    ) + fadeOut(animationSpec = tween(tokens.fastDuration))
+                }
+            ) {
                 TagManageScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
 
-            composable(Screen.Settings.route) {
+            composable(
+                route = Screen.Settings.route,
+                enterTransition = {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = tween(tokens.normalDuration)
+                    ) + fadeIn(animationSpec = tween(tokens.normalDuration))
+                },
+                exitTransition = { fadeOut(animationSpec = tween(tokens.fastDuration)) },
+                popEnterTransition = { fadeIn(animationSpec = tween(tokens.normalDuration)) },
+                popExitTransition = {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = tween(tokens.normalDuration)
+                    ) + fadeOut(animationSpec = tween(tokens.fastDuration))
+                }
+            ) {
                 SettingsScreen(
-                    onNavigateBack = { navController.popBackStack() },
-                    onNavigateToActivation = { navController.navigate(Screen.Activation.route) }
+                    onNavigateBack = { navController.popBackStack() }
+                    // Activation navigation temporarily removed
                 )
             }
 
-            composable(Screen.MCPSkill.route) {
+            composable(
+                route = Screen.MCPSkill.route,
+                enterTransition = {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = tween(tokens.normalDuration)
+                    ) + fadeIn(animationSpec = tween(tokens.normalDuration))
+                },
+                exitTransition = { fadeOut(animationSpec = tween(tokens.fastDuration)) },
+                popEnterTransition = { fadeIn(animationSpec = tween(tokens.normalDuration)) },
+                popExitTransition = {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = tween(tokens.normalDuration)
+                    ) + fadeOut(animationSpec = tween(tokens.fastDuration))
+                }
+            ) {
                 MCPSkillManageScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
-            composable(
+            // Activation route — temporarily removed
+            /* composable(
                 route = Screen.Activation.route,
                 enterTransition = { fadeIn(animationSpec = tween(180)) },
                 exitTransition = { fadeOut(animationSpec = tween(150)) },
@@ -295,7 +394,7 @@ fun NSAINavGraph(
                 com.nsai.notes.presentation.license.ActivationScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
-            }
+            } */
         }
     }
 }

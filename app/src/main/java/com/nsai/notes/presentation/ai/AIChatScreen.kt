@@ -1,5 +1,6 @@
 package com.nsai.notes.presentation.ai
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
+import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -50,6 +52,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -58,6 +61,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,6 +74,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.nsai.notes.domain.model.AIProvider
+import com.nsai.notes.domain.model.AIMode
 import com.nsai.notes.domain.model.ChatMessage
 import com.nsai.notes.domain.model.SearchEngine
 import com.nsai.notes.presentation.theme.LocalAnimationConfig
@@ -90,6 +95,18 @@ fun AIChatScreen(
     var showTopBar by remember { mutableStateOf(true) }
     var showBrowser by remember { mutableStateOf(false) }
     var browserUrl by remember { mutableStateOf(SearchEngine.fromName(uiState.searchEngine).homepage()) }
+    var userScrolledUp by remember { mutableStateOf(false) }
+
+    // Detect manual scroll-up
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val lastIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index
+            val total = listState.layoutInfo.totalItemsCount
+            lastIndex == null || total <= 1 || lastIndex < total - 2
+        }.collect { scrolledUp ->
+            if (scrolledUp) userScrolledUp = true
+        }
+    }
 
     LaunchedEffect(immersive, showTopBar) {
         if (immersive && showTopBar) { delay(3000L); showTopBar = false }
@@ -99,8 +116,11 @@ fun AIChatScreen(
         uiState.error?.let { snackbarHostState.showSnackbar(it); viewModel.onEvent(AIChatEvent.ClearError) }
     }
     LaunchedEffect(uiState.messages.size) {
-        if (uiState.messages.isNotEmpty()) {
-            try { listState.animateScrollToItem(uiState.messages.size - 1) } catch (_: Exception) {}
+        if (uiState.messages.isNotEmpty() && !userScrolledUp) {
+            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            if (lastVisible >= uiState.messages.size - 3) {
+                listState.scrollToItem(uiState.messages.size - 1)
+            }
         }
     }
 
@@ -119,8 +139,8 @@ fun AIChatScreen(
             topBar = {
                 AnimatedVisibility(
                     visible = showTopBar,
-                    enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { -it },
-                    exit = fadeOut(tween(200)) + slideOutVertically(tween(200)) { -it }
+                    enter = fadeIn(tween(tokens.fastDuration)) + slideInVertically(tween(tokens.fastDuration)) { -it },
+                    exit = fadeOut(tween(tokens.fastDuration)) + slideOutVertically(tween(tokens.fastDuration)) { -it }
                 ) {
                     Surface(shadowElevation = 1.dp) {
                         Column {
@@ -165,7 +185,7 @@ fun AIChatScreen(
                                 modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                items(AIProvider.entries) { provider ->
+                                items(AIProvider.entries, key = { it.name }) { provider ->
                                     FilterChip(
                                         selected = provider == uiState.selectedProvider,
                                         onClick = { viewModel.onEvent(AIChatEvent.SelectProvider(provider)) },
@@ -174,11 +194,44 @@ fun AIChatScreen(
                                             selectedContainerColor = MaterialTheme.colorScheme.primary,
                                             selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                                         )
-                                    )
-                                }
+                                     )
+                                 }
                             }
                         }
                     }
+                }
+                // Mode chips — always visible, outside TopAppBar animation
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = AIMode.QUICK == uiState.currentMode,
+                        onClick = { viewModel.onEvent(AIChatEvent.SelectMode(AIMode.QUICK)) },
+                        label = { Text("快速", style = MaterialTheme.typography.labelSmall) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.secondary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onSecondary
+                        )
+                    )
+                    FilterChip(
+                        selected = AIMode.THINK == uiState.currentMode,
+                        onClick = { viewModel.onEvent(AIChatEvent.SelectMode(AIMode.THINK)) },
+                        label = { Text("思考", style = MaterialTheme.typography.labelSmall) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.secondary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onSecondary
+                        )
+                    )
+                    FilterChip(
+                        selected = AIMode.IMAGE == uiState.currentMode,
+                        onClick = { viewModel.onEvent(AIChatEvent.SelectMode(AIMode.IMAGE)) },
+                        label = { Text("图片", style = MaterialTheme.typography.labelSmall) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.secondary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onSecondary
+                        )
+                    )
                 }
             },
             bottomBar = {
@@ -210,7 +263,7 @@ fun AIChatScreen(
                         )
                         val canSend = uiState.inputText.isNotBlank() && !uiState.isLoading
                         IconButton(
-                            onClick = { viewModel.onEvent(AIChatEvent.SendMessage) },
+                            onClick = { userScrolledUp = false; viewModel.onEvent(AIChatEvent.SendMessage) },
                             enabled = canSend,
                             modifier = Modifier.size(40.dp).clip(CircleShape).background(
                                 if (canSend) MaterialTheme.colorScheme.primary
@@ -232,11 +285,18 @@ fun AIChatScreen(
                 verticalArrangement = Arrangement.spacedBy(if (immersive) 6.dp else 16.dp)
             ) {
                 items(uiState.messages, key = { it.timestamp }) { message ->
-                    when (message.role) {
-                        ChatMessage.Role.SYSTEM -> SystemMessage(message)
-                        else -> MessageBubble(message, immersive, onUrlClick = { url ->
+                    Box(Modifier.animateItem()) {
+                        when (message.role) {
+                            ChatMessage.Role.SYSTEM -> SystemMessage(message)
+                            else -> MessageBubble(message, immersive, onUrlClick = { url ->
                             browserUrl = url; showBrowser = true
-                        })
+                        }, onAppendToNote = if (message.role != ChatMessage.Role.USER) {
+                            {
+                                viewModel.onEvent(AIChatEvent.AppendToNote(message.content))
+                                onNavigateBack()
+                            }
+                        } else null)
+                        }
                     }
                 }
                 if (uiState.isLoading) {
@@ -267,7 +327,7 @@ fun AIChatScreen(
 
 // ── Message Bubble ──
 @Composable
-private fun MessageBubble(message: ChatMessage, immersive: Boolean, onUrlClick: (String) -> Unit) {
+private fun MessageBubble(message: ChatMessage, immersive: Boolean, onUrlClick: (String) -> Unit, onAppendToNote: (() -> Unit)? = null) {
     val isUser = message.role == ChatMessage.Role.USER
     val alignment = if (isUser) Alignment.End else Alignment.Start
     val bg = if (isUser) MaterialTheme.colorScheme.primaryContainer
@@ -275,6 +335,18 @@ private fun MessageBubble(message: ChatMessage, immersive: Boolean, onUrlClick: 
     val shape = if (isUser) RoundedCornerShape(20.dp, 4.dp, 20.dp, 20.dp)
     else RoundedCornerShape(4.dp, 20.dp, 20.dp, 20.dp)
     val maxW = if (immersive) 380.dp else 320.dp
+
+    // Typewriter effect for AI messages
+    var displayedChars by remember(message.content) { mutableStateOf(if (isUser) message.content.length else 1) }
+    if (!isUser) {
+        LaunchedEffect(message.content) {
+            val target = message.content.length
+            while (displayedChars < target) {
+                delay(15L) // ~66 chars/sec
+                displayedChars = (displayedChars + 4).coerceAtMost(target)
+            }
+        }
+    }
 
     Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = alignment) {
         if (!isUser && !immersive) {
@@ -296,7 +368,7 @@ private fun MessageBubble(message: ChatMessage, immersive: Boolean, onUrlClick: 
                     Icon(Icons.Default.Psychology, null, Modifier.size(14.dp),
                         tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
                     Spacer(Modifier.width(6.dp))
-                    Text(message.reasoningContent!!, style = MaterialTheme.typography.bodySmall,
+                    Text(message.reasoningContent ?: "", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         maxLines = 4, overflow = TextOverflow.Ellipsis)
                 }
@@ -305,9 +377,23 @@ private fun MessageBubble(message: ChatMessage, immersive: Boolean, onUrlClick: 
 
         Surface(modifier = Modifier.widthIn(max = maxW), shape = shape,
             color = bg, shadowElevation = if (immersive) 0.dp else 1.dp) {
-            Text(message.content, style = MaterialTheme.typography.bodyMedium,
+            Text(message.content.take(displayedChars), style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
+        }
+        // Insert into note button — AI messages only
+        if (!isUser && onAppendToNote != null) {
+            TextButton(
+                onClick = onAppendToNote,
+                modifier = Modifier.padding(top = 2.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+            ) {
+                Icon(Icons.Default.NoteAdd, null, Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+                Spacer(Modifier.width(4.dp))
+                Text("插入笔记", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+            }
         }
     }
 }

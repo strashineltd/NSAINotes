@@ -37,6 +37,7 @@ class ActivationViewModel @Inject constructor(
     private val productService: ProductService
 ) : ViewModel() {
 
+    @androidx.compose.runtime.Stable
     data class UiState(
         val activationCode: String = "",
         val message: String? = null,
@@ -54,7 +55,7 @@ class ActivationViewModel @Inject constructor(
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     init {
-        licenseManager.checkLicense()
+        viewModelScope.launch { licenseManager.checkLicense() }
         _uiState.value = _uiState.value.copy(deviceCode = licenseManager.getDeviceCode())
         viewModelScope.launch { refreshState() }
         loadProducts()
@@ -157,19 +158,21 @@ class ActivationViewModel @Inject constructor(
         val code = _uiState.value.activationCode.trim()
         if (code.isBlank()) return
 
-        val result = licenseManager.activate(code)
-        when (result) {
-            is com.nsai.notes.data.local.license.ActivateResult.Success -> {
-                val df = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                _uiState.value = _uiState.value.copy(
-                    isActive = true,
-                    expireDays = licenseManager.getExpireDays(),
-                    message = "激活成功！到期时间: ${df.format(Date(result.expireTimestamp))}",
-                    isError = false
-                )
-            }
-            is com.nsai.notes.data.local.license.ActivateResult.Error -> {
-                _uiState.value = _uiState.value.copy(message = result.message, isError = true)
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = licenseManager.activate(code)
+            when (result) {
+                is com.nsai.notes.data.local.license.ActivateResult.Success -> {
+                    val df = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                    _uiState.value = _uiState.value.copy(
+                        isActive = true,
+                        expireDays = licenseManager.getExpireDays(),
+                        message = "激活成功！到期时间: ${df.format(Date(result.expireTimestamp))}",
+                        isError = false
+                    )
+                }
+                is com.nsai.notes.data.local.license.ActivateResult.Error -> {
+                    _uiState.value = _uiState.value.copy(message = result.message, isError = true)
+                }
             }
         }
     }

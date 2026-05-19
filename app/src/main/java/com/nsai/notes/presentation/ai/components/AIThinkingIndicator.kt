@@ -23,33 +23,35 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.unit.dp
+import com.nsai.notes.presentation.theme.LocalAnimationConfig
 
 @Composable
 fun AIThinkingIndicator(modifier: Modifier = Modifier) {
+    val tokens = LocalAnimationConfig.current
     val transition = rememberInfiniteTransition(label = "thinking")
 
     val iconScale by transition.animateFloat(
         initialValue = 1f, targetValue = 1.18f,
-        animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
+        animationSpec = infiniteRepeatable(tween(tokens.normalDuration * 2), RepeatMode.Reverse),
         label = "iconPulse"
     )
 
     val dot1Scale by transition.animateFloat(
         initialValue = 0.4f, targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            tween(400, delayMillis = 0), RepeatMode.Reverse
+            tween(tokens.normalDuration, delayMillis = 0), RepeatMode.Reverse
         ), label = "dot1"
     )
     val dot2Scale by transition.animateFloat(
         initialValue = 0.4f, targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            tween(400, delayMillis = 150), RepeatMode.Reverse
+            tween(tokens.normalDuration, delayMillis = 150), RepeatMode.Reverse
         ), label = "dot2"
     )
     val dot3Scale by transition.animateFloat(
         initialValue = 0.4f, targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            tween(400, delayMillis = 300), RepeatMode.Reverse
+            tween(tokens.normalDuration, delayMillis = 300), RepeatMode.Reverse
         ), label = "dot3"
     )
 

@@ -8,16 +8,17 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.concurrent.Volatile
 
 @Singleton
 class FluidityManager @Inject constructor(
     private val frameMonitor: FrameMonitor,
     private val resourceManager: ResourceManager
 ) {
-    private var lastJankTime = 0L
-    private var consecutiveJankFrames = 0
-    private var smoothWindowCount = 0
-    private var animationBudget = AnimationBudget.FULL
+    @Volatile private var lastJankTime = 0L
+    @Volatile private var consecutiveJankFrames = 0
+    @Volatile private var smoothWindowCount = 0
+    @Volatile private var animationBudget = AnimationBudget.FULL
 
     private val _config = MutableStateFlow(FluidityConfig())
     val config: StateFlow<FluidityConfig> = _config.asStateFlow()
@@ -41,7 +42,7 @@ class FluidityManager @Inject constructor(
         if (metrics.dropRate > 0.10f) {
             consecutiveJankFrames++
             smoothWindowCount = 0
-            if (consecutiveJankFrames >= 3) {
+            if (consecutiveJankFrames >= 1) { // Downgrade immediately on first jank detection
                 downgradeAnimations(_config.value)
             }
         } else if (metrics.dropRate < 0.03f) {

@@ -144,6 +144,7 @@ private fun ExpandableModelCard(
     onToggleEnabled: () -> Unit,
     onTestConnection: () -> Unit
 ) {
+    val tokens = LocalAnimationConfig.current
     var expanded by remember { mutableStateOf(false) }
 
     Card(
@@ -222,8 +223,8 @@ private fun ExpandableModelCard(
             // Expandable section
             AnimatedVisibility(
                 visible = expanded,
-                enter = expandVertically(tween(200)) + fadeIn(tween(200)),
-                exit = shrinkVertically(tween(150)) + fadeOut(tween(150))
+                enter = expandVertically(tween(tokens.fastDuration)) + fadeIn(tween(tokens.fastDuration)),
+                exit = shrinkVertically(tween(tokens.fastDuration)) + fadeOut(tween(tokens.fastDuration))
             ) {
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                     Spacer(Modifier.height(4.dp))
@@ -305,16 +306,17 @@ private fun StaggeredCardItem(
     onToggleEnabled: () -> Unit,
     onTestConnection: () -> Unit
 ) {
-    val delayMs = (index * 55).coerceAtMost(180)
+    val tokens = LocalAnimationConfig.current
+    val delayMs = (index * tokens.staggeredDelay).coerceAtMost(tokens.normalDuration)
     AnimatedVisibility(
         visible = true,
         enter = scaleIn(
             animationSpec = spring(
-                dampingRatio = Spring.DampingRatioNoBouncy,
-                stiffness = Spring.StiffnessLow
+                dampingRatio = tokens.springDamping,
+                stiffness = tokens.springStiffness
             ),
             initialScale = 0.94f
-        ) + fadeIn(animationSpec = tween(delayMillis = 200 + delayMs))
+        ) + fadeIn(animationSpec = tween(delayMillis = delayMs))
     ) {
         ExpandableModelCard(
             config = config,

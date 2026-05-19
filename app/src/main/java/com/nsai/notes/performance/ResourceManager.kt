@@ -63,15 +63,13 @@ class ResourceManager @Inject constructor(
             clearDiskCache()
             isLowMemory = false
         }
-        // Always suggest GC on navigation to reduce memory pressure
-        System.gc()
+        // Memory pressure handled by Android runtime
     }
 
     fun prepareForHeavyScreen() {
         if (isLowMemory || deviceConfig.deviceClass == DeviceClass.LOW) {
             clearMemoryCache()
         }
-        System.gc()
     }
 
     fun getMaxCacheSize(): Int = deviceConfig.memoryBudgetMB
@@ -86,7 +84,7 @@ class ResourceManager @Inject constructor(
 
     private fun trimApplicationMemory() {
         try {
-            Runtime.getRuntime().gc()
+            clearMemoryCache()
         } catch (_: Exception) {}
     }
 

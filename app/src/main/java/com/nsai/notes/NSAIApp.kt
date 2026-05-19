@@ -16,6 +16,10 @@ import com.nsai.notes.performance.FluidityManager
 import com.nsai.notes.performance.FrameMonitor
 import com.nsai.notes.performance.ResourceManager
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -23,8 +27,9 @@ import javax.inject.Inject
 @HiltAndroidApp
 class NSAIApp : Application() {
 
-    @Inject
-    lateinit var imageLoader: ImageLoader
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    @Inject lateinit var imageLoader: ImageLoader
 
     @Inject
     lateinit var resourceManager: ResourceManager
@@ -58,6 +63,11 @@ class NSAIApp : Application() {
                 fluidityManager.notifyMemoryLow()
             }
         })
+
+        // Collect navigation events to enable animation budget downgrades
+        appScope.launch {
+            fluidityManager.navigationEvents.collect { /* Navigation events consumed by FluidityManager internally */ }
+        }
 
         enqueueWorkers()
     }

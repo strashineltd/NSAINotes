@@ -25,7 +25,11 @@ data class SettingsUiState(
     val updateDialog: UpdateDialogState = UpdateDialogState.Hidden,
     val licenseActive: Boolean = false,
     val licenseProductName: String? = null,
-    val licenseExpireDays: Int = 0
+    val licenseExpireDays: Int = 0,
+    val devModeEnabled: Boolean = false,
+    val animationsEnabled: Boolean = true,
+    val logLines: List<String> = emptyList(),
+    val logFilter: String = "ALL"
 )
 
 @Stable
@@ -44,6 +48,10 @@ sealed class SettingsEvent {
     data object CheckUpdate : SettingsEvent()
     data object ShowPrivacyPolicy : SettingsEvent()
     data object DismissUpdateDialog : SettingsEvent()
+    data object ActivateDevMode : SettingsEvent()
+    data object RefreshLogs : SettingsEvent()
+    data class SetLogFilter(val filter: String) : SettingsEvent()
+    data object ToggleAnimations : SettingsEvent()
 }
 
 @HiltViewModel
@@ -77,6 +85,26 @@ class SettingsViewModel @Inject constructor(
             SettingsEvent.CheckUpdate -> checkUpdate()
             SettingsEvent.ShowPrivacyPolicy -> showPrivacyPolicy()
             SettingsEvent.DismissUpdateDialog -> dismissUpdateDialog()
+            SettingsEvent.ActivateDevMode -> _uiState.value = _uiState.value.copy(devModeEnabled = true)
+            SettingsEvent.RefreshLogs -> refreshLogs()
+            is SettingsEvent.SetLogFilter -> _uiState.value = _uiState.value.copy(logFilter = event.filter)
+            SettingsEvent.ToggleAnimations -> _uiState.value = _uiState.value.copy(animationsEnabled = !_uiState.value.animationsEnabled)
+        }
+    }
+
+    private fun refreshLogs() {
+        viewModelScope.launch {
+            try {
+                val filter = _uiState.value.logFilter
+                val logcatFilter = when (filter) {
+                    "FATAL" -> arrayOf("logcat", "-d", "-t", "30", "*:F")
+                    "ERROR" -> arrayOf("logcat", "-d", "-t", "30", "*:E")
+                    else -> arrayOf("logcat", "-d", "-t", "50", "*:W")
+                }
+                val process = Runtime.getRuntime().exec(logcatFilter)
+                val lines = process.inputStream.bufferedReader().use { it.readLines() }.filter { it.isNotBlank() }.take(50)
+                _uiState.value = _uiState.value.copy(logLines = if (lines.isEmpty()) listOf("暂无日志") else lines)
+            } catch (_: Exception) { _uiState.value = _uiState.value.copy(logLines = listOf("无法获取日志")) }
         }
     }
 

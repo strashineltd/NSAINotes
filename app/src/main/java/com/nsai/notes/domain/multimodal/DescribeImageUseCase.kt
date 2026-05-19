@@ -34,6 +34,8 @@ class DescribeImageUseCase @Inject constructor(
         } else bitmap
         val os = ByteArrayOutputStream()
         scaled.compress(Bitmap.CompressFormat.JPEG, 70, os)
-        return Base64.encodeToString(os.toByteArray(), Base64.NO_WRAP)
+        val result = Base64.encodeToString(os.toByteArray(), Base64.NO_WRAP)
+        if (scaled != bitmap) scaled.recycle()
+        return result
     }
 }

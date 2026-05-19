@@ -7,8 +7,11 @@ import com.nsai.notes.data.local.db.entity.ConversationEntity
 import com.nsai.notes.domain.model.ChatMessage
 import com.nsai.notes.domain.model.Conversation
 import com.nsai.notes.domain.repository.ConversationRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,10 +25,10 @@ class ConversationRepositoryImpl @Inject constructor(
 
     override fun getAll(): Flow<List<Conversation>> = dao.getAll().map { entities ->
         entities.map { it.toDomain() }
-    }
+    }.flowOn(Dispatchers.Default)
 
     override suspend fun getById(id: Long): Conversation? =
-        dao.getById(id)?.toDomain()
+        withContext(Dispatchers.Default) { dao.getById(id)?.toDomain() }
 
     override suspend fun save(conversation: Conversation): Long {
         val messagesJson = gson.toJson(conversation.messages)

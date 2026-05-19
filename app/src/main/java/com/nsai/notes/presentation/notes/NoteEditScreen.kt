@@ -59,6 +59,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -84,6 +87,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.nsai.notes.presentation.notes.components.MarkdownPreview
+import com.nsai.notes.presentation.theme.LocalAnimationConfig
 import com.nsai.notes.presentation.voice.VoiceInputDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -120,6 +124,7 @@ fun NoteEditScreen(
     }
 
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var showImageSheet by remember { mutableStateOf(false) }
     var pendingImageAction by remember { mutableStateOf<String?>(null) }
 
@@ -127,11 +132,15 @@ fun NoteEditScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
         uri?.let {
-            val bitmap = android.provider.MediaStore.Images.Media.getBitmap(context.contentResolver, it)
-            if (pendingImageAction == "describe") {
-                viewModel.onEvent(NoteEditEvent.DescribeImage(bitmap))
-            } else {
-                viewModel.onEvent(NoteEditEvent.CaptureImage(bitmap))
+            scope.launch(Dispatchers.IO) {
+                val bitmap = withContext(Dispatchers.IO) { android.provider.MediaStore.Images.Media.getBitmap(context.contentResolver, it) }
+                withContext(Dispatchers.Main) {
+                    if (pendingImageAction == "describe") {
+                        viewModel.onEvent(NoteEditEvent.DescribeImage(bitmap))
+                    } else {
+                        viewModel.onEvent(NoteEditEvent.CaptureImage(bitmap))
+                    }
+                }
             }
             pendingImageAction = null
         }
@@ -144,12 +153,6 @@ fun NoteEditScreen(
             viewModel.onEvent(NoteEditEvent.CaptureImage(it))
         }
     }
-
-    val saveScale by animateFloatAsState(
-        targetValue = if (uiState.isSaving) 0.85f else 1f,
-        animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium),
-        label = "saveScale"
-    )
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -195,6 +198,16 @@ fun NoteEditScreen(
                                 tint = MaterialTheme.colorScheme.primary)
                         }
                     }
+                    // Save button — top-right
+                    val canSave = uiState.title.isNotBlank() || uiState.content.isNotBlank()
+                    if (canSave) {
+                        IconButton(onClick = { viewModel.onEvent(NoteEditEvent.Save) }) {
+                            Icon(
+                                Icons.Default.Done, contentDescription = "保存",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent,
@@ -204,22 +217,6 @@ fun NoteEditScreen(
                 )
             )
         },
-        floatingActionButton = {
-            androidx.compose.animation.AnimatedVisibility(
-                visible = uiState.title.isNotBlank() || uiState.content.isNotBlank(),
-                enter = fadeIn(spring()) + slideInVertically(spring()) { it },
-                exit = fadeOut(tween(200)) + slideOutVertically(tween(200)) { it }
-            ) {
-                FloatingActionButton(
-                    onClick = { viewModel.onEvent(NoteEditEvent.Save) },
-                    modifier = Modifier.scale(saveScale),
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ) {
-                    Icon(Icons.Default.Done, contentDescription = "保存")
-                }
-            }
-        }
     ) { padding ->
         Box(
             modifier = Modifier
@@ -282,9 +279,10 @@ fun NoteEditScreen(
                     // Toggle: editor or preview — Crossfade is lighter than AnimatedContent;
                     // it uses graphicsLayer-based alpha fading (GPU-composited) instead of
                     // keeping both children in the composition tree simultaneously.
+                    val tokens = LocalAnimationConfig.current
                     Crossfade(
                         targetState = uiState.isPreview,
-                        animationSpec = tween(250),
+                        animationSpec = tween(tokens.normalDuration),
                         label = "editorPreview",
                         modifier = Modifier.weight(1f)
                     ) { isPreview ->

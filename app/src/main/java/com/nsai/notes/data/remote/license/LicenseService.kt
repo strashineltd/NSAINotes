@@ -1,6 +1,9 @@
 package com.nsai.notes.data.remote.license
 
+import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -25,12 +28,13 @@ data class LicenseValidateResponse(
 
 @Singleton
 class LicenseService @Inject constructor(
-    private val client: OkHttpClient
+    private val client: OkHttpClient,
+    private val gson: Gson
 ) {
     var serverUrl: String = com.nsai.notes.data.remote.ServerConfig.baseUrl
 
-    fun validate(activationCode: String, deviceId: String): LicenseValidateResponse {
-        return try {
+    suspend fun validate(activationCode: String, deviceId: String): LicenseValidateResponse = withContext(Dispatchers.IO) {
+        try {
             val json = JSONObject().apply {
                 put("activation_code", activationCode)
                 put("device_id", deviceId)
@@ -42,7 +46,6 @@ class LicenseService @Inject constructor(
                 .build()
             val response = client.newCall(request).execute()
             val responseBody = response.body?.string() ?: """{"valid":false,"message":"服务器无响应"}"""
-            val gson = com.google.gson.Gson()
             gson.fromJson(responseBody, LicenseValidateResponse::class.java)
         } catch (e: Exception) {
             LicenseValidateResponse(valid = false, message = "网络错误: ${e.message}")
