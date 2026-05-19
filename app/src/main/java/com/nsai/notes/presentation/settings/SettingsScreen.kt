@@ -2,7 +2,17 @@ package com.nsai.notes.presentation.settings
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.FilterChip
@@ -85,6 +95,7 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     var showDonateDialog by remember { mutableStateOf(false) }
+    var expandedQr by remember { mutableStateOf<QrViewerState?>(null) }
 
     // Dialogs ...
     when (val dialog = uiState.updateDialog) {
@@ -415,11 +426,13 @@ fun SettingsScreen(
                     ) {
                         QrCodeColumn(
                             painterResource(R.drawable.wechat_qr),
-                            "微信收款"
+                            "微信收款",
+                            onClick = { expandedQr = QrViewerState(R.drawable.wechat_qr, "微信收款码") }
                         )
                         QrCodeColumn(
                             painterResource(R.drawable.alipay_qr),
-                            "支付宝收款"
+                            "支付宝收款",
+                            onClick = { expandedQr = QrViewerState(R.drawable.alipay_qr, "支付宝收款码") }
                         )
                     }
                 }
@@ -432,12 +445,22 @@ fun SettingsScreen(
             shape = RoundedCornerShape(16.dp)
         )
     }
+
+    // Full-screen QR viewer
+    if (expandedQr != null) {
+        BackHandler { expandedQr = null }
+    }
+    FullScreenQrViewer(
+        state = expandedQr,
+        onDismiss = { expandedQr = null }
+    )
 }
 
 @Composable
 private fun QrCodeColumn(
     painter: Painter,
-    label: String
+    label: String,
+    onClick: () -> Unit = {}
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
@@ -448,11 +471,84 @@ private fun QrCodeColumn(
             modifier = Modifier
                 .size(130.dp)
                 .clip(RoundedCornerShape(12.dp))
+                .clickable { onClick() }
         )
         Spacer(Modifier.height(6.dp))
         Text(
             label,
             style = MaterialTheme.typography.labelSmall
         )
+    }
+}
+
+private data class QrViewerState(
+    @androidx.annotation.DrawableRes val resId: Int,
+    val label: String
+)
+
+@Composable
+private fun FullScreenQrViewer(
+    state: QrViewerState?,
+    onDismiss: () -> Unit
+) {
+    AnimatedVisibility(
+        visible = state != null,
+        enter = fadeIn(tween(300)) +
+                scaleIn(
+                    initialScale = 0.85f,
+                    animationSpec = spring(dampingRatio = 0.55f, stiffness = 250f)
+                ),
+        exit = fadeOut(tween(150))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.85f))
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                ) { onDismiss() },
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clickable(enabled = false) {} // prevent click-through to background
+            ) {
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    elevation = CardDefaults.cardElevation(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    state?.let { s ->
+                        Image(
+                            painter = painterResource(s.resId),
+                            contentDescription = s.label,
+                            modifier = Modifier
+                                .padding(16.dp)
+                                .size(280.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    state?.label ?: "",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "扫描二维码向作者转账",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    "点击任意位置关闭",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.35f)
+                )
+            }
+        }
     }
 }
