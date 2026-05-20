@@ -5,7 +5,10 @@ import com.google.gson.annotations.SerializedName
 import com.nsai.notes.domain.model.AIProvider
 import com.nsai.notes.domain.model.ChatMessage
 import com.nsai.notes.domain.repository.AIOptions
+import com.nsai.notes.domain.repository.AIResponse
 import com.nsai.notes.domain.repository.AIService
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -16,6 +19,7 @@ class ReActLoop @Inject constructor(
     private val gson: Gson
 ) {
     private val maxSteps = 8
+    private val maxRetries = 2
 
     data class ReActStep(
         @SerializedName("thought") val thought: String = "",
@@ -29,13 +33,15 @@ class ReActLoop @Inject constructor(
     private val stepHistory = mutableListOf<AgentStepResult>()
     private val historyLock = Any()
 
+    private fun readStepHistory(): List<AgentStepResult> = synchronized(historyLock) { stepHistory.toList() }
+
     suspend fun execute(goal: String, provider: AIProvider): String {
         synchronized(historyLock) { stepHistory.clear() }
         val systemPrompt = buildSystemPrompt()
 
         for (step in 1..maxSteps) {
             val messages = listOf(ChatMessage(ChatMessage.Role.SYSTEM, systemPrompt)) +
-                stepHistory.flatMap { s ->
+                readStepHistory().flatMap { s ->
                     listOf(
                         ChatMessage(ChatMessage.Role.ASSISTANT, "思考: ${s.thought}\n动作: ${s.action ?: "无"}"),
                         if (s.observation != null) ChatMessage(ChatMessage.Role.USER, "观察结果: ${s.observation}") else null
@@ -43,7 +49,7 @@ class ReActLoop @Inject constructor(
                 }.filterNotNull() +
                 listOf(ChatMessage(ChatMessage.Role.USER, if (step == 1) goal else "继续执行下一步"))
 
-            val response = aiService.chat(provider = provider, messages = messages, options = AIOptions(temperature = 0.3f, maxTokens = 4096))
+            val response = chatWithRetry(provider, messages, step)
             val parsed = parseResponse(response.content)
             if (parsed == null) { synchronized(historyLock) { stepHistory.add(AgentStepResult("无法解析AI响应", null, null)) }; continue }
             if (parsed.finalAnswer != null) return parsed.finalAnswer
@@ -54,6 +60,8 @@ class ReActLoop @Inject constructor(
 
             val result = try {
                 tool.execute(parsed.params ?: emptyMap())
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 ToolResult(false, "", "工具执行异常: ${e.message}")
             }
@@ -61,6 +69,22 @@ class ReActLoop @Inject constructor(
             synchronized(historyLock) { stepHistory.add(AgentStepResult(parsed.thought, toolName, observation)) }
         }
         return "Agent 在 $maxSteps 步内无法完成任务，请尝试更具体的指令。"
+    }
+
+    private suspend fun chatWithRetry(provider: AIProvider, messages: List<ChatMessage>, step: Int): AIResponse {
+        var lastEx: Exception? = null
+        for (attempt in 0..maxRetries) {
+            try {
+                return aiService.chat(provider = provider, messages = messages,
+                    options = AIOptions(temperature = 0.3f, maxTokens = 4096))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                lastEx = e
+                if (attempt < maxRetries) delay(1000L * (attempt + 1))
+            }
+        }
+        throw AIException("Agent AI调用失败(${maxRetries + 1}次重试): ${lastEx?.message}", "")
     }
 
     fun getSteps(): List<AgentStepResult> = synchronized(historyLock) { stepHistory.toList() }
@@ -103,3 +127,5 @@ class ReActLoop @Inject constructor(
         return try { gson.fromJson(content.substring(jsonStart, jsonEnd), ReActStep::class.java) } catch (_: Exception) { null }
     }
 }
+
+private class AIException(message: String, type: String) : Exception(message)

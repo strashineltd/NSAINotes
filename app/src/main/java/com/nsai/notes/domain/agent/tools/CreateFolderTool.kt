@@ -22,8 +22,16 @@ class CreateFolderTool @Inject constructor(@ApplicationContext private val conte
         val parent = params["path"]?.takeIf { it.isNotBlank() } ?: context.filesDir.path
         val name = params["name"] ?: return ToolResult(false, "", "缺少name参数")
         val dir = File(parent, name)
-        return if (dir.exists()) ToolResult(false, "", "文件夹已存在: ${dir.path}")
-        else if (dir.mkdirs()) ToolResult(true, "文件夹创建成功: ${dir.path}")
-        else ToolResult(false, "", "创建失败: ${dir.path}")
+        return try {
+            when {
+                dir.exists() -> ToolResult(false, "", "文件夹已存在: ${dir.path}")
+                dir.mkdirs() -> ToolResult(true, "文件夹创建成功: ${dir.path}")
+                else -> ToolResult(false, "", "创建失败: ${dir.path}")
+            }
+        } catch (e: SecurityException) {
+            ToolResult(false, "", "权限不足，无法创建: ${dir.path}")
+        } catch (e: Exception) {
+            ToolResult(false, "", "创建文件夹异常: ${e.message}")
+        }
     }
 }

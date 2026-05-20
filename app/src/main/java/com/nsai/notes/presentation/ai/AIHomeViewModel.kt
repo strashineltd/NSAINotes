@@ -375,6 +375,8 @@ class AIHomeViewModel @Inject constructor(
                             isLoading = false
                         )
                         saveCurrentConversation()
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         Log.e("AIHomeVM", "Agent failed", e)
                         _uiState.value = _uiState.value.copy(isLoading = false, error = e.message ?: "Agent执行失败")
@@ -422,6 +424,8 @@ class AIHomeViewModel @Inject constructor(
                         }
                     )
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = e.message ?: "请求失败")
             }

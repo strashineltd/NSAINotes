@@ -16,12 +16,18 @@ class DeleteFolderTool @Inject constructor() : AgentTool {
     override suspend fun execute(params: Map<String, String>): ToolResult {
         val path = params["path"] ?: return ToolResult(false, "", "缺少path参数")
         val dir = File(path)
-        return when {
-            !dir.exists() -> ToolResult(false, "", "文件夹不存在: $path")
-            !dir.isDirectory -> ToolResult(false, "", "不是文件夹: $path")
-            dir.listFiles()?.isNotEmpty() == true -> ToolResult(false, "", "文件夹不为空，无法删除: $path")
-            dir.delete() -> ToolResult(true, "文件夹已删除: $path")
-            else -> ToolResult(false, "", "删除失败: $path")
+        return try {
+            when {
+                !dir.exists() -> ToolResult(false, "", "文件夹不存在: $path")
+                !dir.isDirectory -> ToolResult(false, "", "不是文件夹: $path")
+                dir.listFiles()?.isNotEmpty() == true -> ToolResult(false, "", "文件夹不为空，无法删除: $path")
+                dir.delete() -> ToolResult(true, "文件夹已删除: $path")
+                else -> ToolResult(false, "", "删除失败: $path")
+            }
+        } catch (e: SecurityException) {
+            ToolResult(false, "", "权限不足，无法删除: $path")
+        } catch (e: Exception) {
+            ToolResult(false, "", "删除文件夹异常: ${e.message}")
         }
     }
 }
