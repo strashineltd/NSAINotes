@@ -33,7 +33,7 @@ data class AIChatUiState(
     val summary: String? = null,
     val isSummarizing: Boolean = false,
     val error: String? = null,
-    val searchEngine: String = "BAIDU",
+    val searchEngine: String = "BING",
     val searchEngineCustomUrl: String = "",
     val bookmarks: List<SettingsDataStore.Bookmark> = emptyList(),
     val searchHistory: List<String> = emptyList(),

@@ -87,7 +87,7 @@ import com.nsai.notes.presentation.theme.LocalAnimationConfig
 @Composable
 fun WebBrowserDialog(
     initialUrl: String = "",
-    searchEngine: String = "GOOGLE",
+    searchEngine: String = "BING",
     searchEngineCustomUrl: String = "",
     bookmarksTitles: List<String> = emptyList(),
     bookmarkUrls: List<String> = emptyList(),
@@ -686,7 +686,7 @@ private fun applyViewMode(webView: WebView, desktopMode: Boolean) {
     }
 }
 
-private fun resolveUrl(input: String, searchEngine: SearchEngine = SearchEngine.BAIDU, customUrl: String = ""): String {
+private fun resolveUrl(input: String, searchEngine: SearchEngine = SearchEngine.BING, customUrl: String = ""): String {
     if (input.isBlank()) return searchEngine.homepage()
     return when {
         input.startsWith("http://") || input.startsWith("https://") -> input

@@ -54,7 +54,7 @@ data class AIHomeUiState(
     val currentConversationId: Long = 0L,
     val showHistory: Boolean = false,
     val searchResults: List<SearchResult> = emptyList(),
-    val searchEngine: String = "GOOGLE",
+    val searchEngine: String = "BING",
     val searchEngineCustomUrl: String = "",
     val bookmarks: List<SettingsDataStore.Bookmark> = emptyList(),
     val searchHistory: List<String> = emptyList()

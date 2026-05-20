@@ -10,20 +10,20 @@ enum class SearchEngine(val displayName: String, val searchUrl: String, val favi
 
     fun buildUrl(query: String, customUrl: String = ""): String {
         val template = if (this == CUSTOM) customUrl else searchUrl
-        // Fallback when custom template is empty — use Baidu as default for Chinese users
-        if (template.isBlank()) return "https://www.baidu.com/s?wd=${java.net.URLEncoder.encode(query, "UTF-8")}"
+        // Fallback when custom template is empty — use Bing as default
+        if (template.isBlank()) return "https://www.bing.com/search?q=${java.net.URLEncoder.encode(query, "UTF-8")}"
         return template.replace("{query}", java.net.URLEncoder.encode(query, "UTF-8"))
     }
 
     fun homepage(): String = when (this) {
         BAIDU -> "https://www.baidu.com"
-        BING -> "https://www.bing.com/search"
-        CUSTOM -> searchUrl.ifBlank { "https://www.baidu.com" }
+        BING -> "https://www.bing.com"
+        CUSTOM -> searchUrl.ifBlank { "https://www.bing.com" }
             .substringBefore("{query}").removeSuffix("?").removeSuffix("&")
     }
 
     companion object {
         fun fromName(name: String): SearchEngine =
-            entries.find { it.name == name } ?: BAIDU
+            entries.find { it.name == name } ?: BING
     }
 }

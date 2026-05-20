@@ -240,7 +240,7 @@ class SettingsDataStore @Inject constructor(
         prefs[Keys.SEARCH_ENGINE_CUSTOM_URL] ?: ""
     }
 
-    suspend fun getSearchEngine(): String = dataStore.data.first()[Keys.SEARCH_ENGINE] ?: "BAIDU"
+    suspend fun getSearchEngine(): String = dataStore.data.first()[Keys.SEARCH_ENGINE] ?: "BING"
 
     suspend fun setSearchEngine(engine: String) {
         dataStore.edit { prefs -> prefs[Keys.SEARCH_ENGINE] = engine }
