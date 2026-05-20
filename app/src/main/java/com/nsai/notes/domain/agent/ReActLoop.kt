@@ -99,7 +99,7 @@ class ReActLoop @Inject constructor(
     private fun parseResponse(content: String): ReActStep? {
         val jsonStart = content.indexOf('{')
         val jsonEnd = content.lastIndexOf('}') + 1
-        if (jsonStart < 0 || jsonEnd <= jsonStart) return null
+        if (jsonStart < 0 || jsonEnd <= jsonStart || jsonEnd > content.length) return null
         return try { gson.fromJson(content.substring(jsonStart, jsonEnd), ReActStep::class.java) } catch (_: Exception) { null }
     }
 }

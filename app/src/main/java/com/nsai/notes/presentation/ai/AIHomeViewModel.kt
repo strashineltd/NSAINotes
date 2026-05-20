@@ -286,8 +286,9 @@ class AIHomeViewModel @Inject constructor(
                 title = title,
                 messages = messages
             )
-            val newId = conversationRepository.save(conv)
-            _uiState.value = _uiState.value.copy(currentConversationId = newId)
+            runCatching { conversationRepository.save(conv) }.onSuccess { newId ->
+                _uiState.value = _uiState.value.copy(currentConversationId = newId)
+            }
         }
     }
 

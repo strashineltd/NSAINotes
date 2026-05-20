@@ -240,7 +240,7 @@ class AIChatViewModel @Inject constructor(
     private fun loadNote(id: Long) {
         noteId = id
         viewModelScope.launch {
-            val note = getNoteUseCase(id).first()
+            val note = runCatching { getNoteUseCase(id).first() }.getOrNull()
             if (note != null) {
                 _uiState.value = _uiState.value.copy(
                     messages = listOf(
@@ -273,7 +273,8 @@ class AIChatViewModel @Inject constructor(
         )
 
         sendJob = viewModelScope.launch {
-            // Perform web search first if in search mode
+            try {
+                // Perform web search first if in search mode
             var searchContext = ""
             if (_uiState.value.isWebSearchMode) {
                 val sResults = webSearchService.search(text)
@@ -318,6 +319,12 @@ class AIChatViewModel @Inject constructor(
                     )
                 }
             )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = e.message ?: "AI请求失败"
+                )
+            }
         }
     }
 
