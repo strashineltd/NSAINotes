@@ -66,6 +66,8 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -329,6 +331,55 @@ fun AIHomeScreen(
                     WorkspaceTab.CHAT -> viewModel.onEvent(AIHomeEvent.SelectMode(AIMode.QUICK))
                     WorkspaceTab.AGENT -> viewModel.onEvent(AIHomeEvent.ToggleAgentMode)
                     WorkspaceTab.RAG -> viewModel.onEvent(AIHomeEvent.ToggleRagMode)
+                }
+            }
+            
+            // Mode selection chips — Quick / Think / Image
+            if (!uiState.isAgentMode && !uiState.isRagMode) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = AIMode.QUICK == uiState.currentMode,
+                        onClick = { viewModel.onEvent(AIHomeEvent.SelectMode(AIMode.QUICK)) },
+                        label = { Text("快速", style = MaterialTheme.typography.labelSmall) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.secondary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onSecondary
+                        )
+                    )
+                    FilterChip(
+                        selected = AIMode.THINK == uiState.currentMode,
+                        onClick = { viewModel.onEvent(AIHomeEvent.SelectMode(AIMode.THINK)) },
+                        label = { Text("思考", style = MaterialTheme.typography.labelSmall) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.secondary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onSecondary
+                        )
+                    )
+                    FilterChip(
+                        selected = AIMode.IMAGE == uiState.currentMode,
+                        onClick = { viewModel.onEvent(AIHomeEvent.SelectMode(AIMode.IMAGE)) },
+                        label = { Text("图片", style = MaterialTheme.typography.labelSmall) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.secondary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onSecondary
+                        )
+                    )
+                    // Web search toggle
+                    Spacer(Modifier.weight(1f))
+                    IconButton(
+                        onClick = { viewModel.onEvent(AIHomeEvent.ToggleWebSearch) },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.TravelExplore, "联网搜索",
+                            Modifier.size(18.dp),
+                            tint = if (uiState.isWebSearchMode) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                        )
+                    }
                 }
             }
 
