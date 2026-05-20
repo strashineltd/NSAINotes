@@ -36,8 +36,8 @@ enum class AIProvider(
     GLM(
         displayName = "GLM 5.1",
         defaultBaseUrl = "https://open.bigmodel.cn/api/paas/v4",
-        quickModel = "glm-4-flash",
-        thinkModel = "glm-4-plus",
+        quickModel = "glm-5.1",
+        thinkModel = "glm-5.1",
         imageModel = "cogview-3",
         supportsVision = true
     ),
@@ -51,9 +51,9 @@ enum class AIProvider(
     QWEN(
         displayName = "Qwen3.6Max",
         defaultBaseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        quickModel = "qwen3-max",
-        thinkModel = "qwen3-max",
-        imageModel = "qwen3-max",
+        quickModel = "qwen3.6-max",
+        thinkModel = "qwen3.6-max",
+        imageModel = "qwen3.6-max",
         supportsVision = true
     ),
     MIMO(
