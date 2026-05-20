@@ -39,6 +39,8 @@ sealed class MCPSkillEvent {
     data class DeleteServer(val id: String) : MCPSkillEvent()
     data class DeleteSkill(val id: String) : MCPSkillEvent()
     data class TestServer(val serverId: String) : MCPSkillEvent()
+    data class ToggleServerEnabled(val id: String) : MCPSkillEvent()
+    data class ToggleSkillEnabled(val id: String) : MCPSkillEvent()
     data object CancelEdit : MCPSkillEvent()
 }
 
@@ -58,14 +60,16 @@ class MCPSkillViewModel @Inject constructor(
         when (event) {
             MCPSkillEvent.LoadAll -> loadAll()
             is MCPSkillEvent.SwitchTab -> _uiState.value = _uiState.value.copy(activeTab = event.index)
-            is MCPSkillEvent.StartEditServer -> _uiState.value = _uiState.value.copy(editingServer = event.server)
-            is MCPSkillEvent.StartEditSkill -> _uiState.value = _uiState.value.copy(editingSkill = event.skill)
+            is MCPSkillEvent.StartEditServer -> _uiState.value = _uiState.value.copy(editingServer = event.server ?: MCPServer(name = "", url = ""))
+            is MCPSkillEvent.StartEditSkill -> _uiState.value = _uiState.value.copy(editingSkill = event.skill ?: SkillPlugin(name = "", prompt = ""))
             is MCPSkillEvent.SaveServer -> saveServer(event.server)
             is MCPSkillEvent.SaveSkill -> saveSkill(event.skill)
             is MCPSkillEvent.DeleteServer -> deleteServer(event.id)
             is MCPSkillEvent.DeleteSkill -> deleteSkill(event.id)
             is MCPSkillEvent.TestServer -> testServer(event.serverId)
             MCPSkillEvent.CancelEdit -> _uiState.value = _uiState.value.copy(editingServer = null, editingSkill = null)
+            is MCPSkillEvent.ToggleServerEnabled -> toggleServerEnabled(event.id)
+            is MCPSkillEvent.ToggleSkillEnabled -> toggleSkillEnabled(event.id)
         }
     }
 
@@ -109,6 +113,22 @@ class MCPSkillViewModel @Inject constructor(
             settingsDataStore.deleteSkillPlugin(id)
             loadAll()
         }
+    }
+
+    private fun toggleServerEnabled(id: String) {
+        val server = _uiState.value.mcpServers.find { it.id == id } ?: return
+        saveServer(server.copy(isEnabled = !server.isEnabled))
+        _uiState.value = _uiState.value.copy(
+            mcpServers = _uiState.value.mcpServers.map { if (it.id == id) it.copy(isEnabled = !it.isEnabled) else it }
+        )
+    }
+
+    private fun toggleSkillEnabled(id: String) {
+        val skill = _uiState.value.skillPlugins.find { it.id == id } ?: return
+        saveSkill(skill.copy(isEnabled = !skill.isEnabled))
+        _uiState.value = _uiState.value.copy(
+            skillPlugins = _uiState.value.skillPlugins.map { if (it.id == id) it.copy(isEnabled = !it.isEnabled) else it }
+        )
     }
 
     private fun testServer(serverId: String) {

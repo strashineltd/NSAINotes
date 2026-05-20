@@ -101,7 +101,8 @@ fun MCPSkillManageScreen(
                     skills = uiState.skillPlugins,
                     onAdd = { viewModel.onEvent(MCPSkillEvent.StartEditSkill(null)) },
                     onEdit = { viewModel.onEvent(MCPSkillEvent.StartEditSkill(it)) },
-                    onDelete = { viewModel.onEvent(MCPSkillEvent.DeleteSkill(it)) }
+                    onDelete = { viewModel.onEvent(MCPSkillEvent.DeleteSkill(it)) },
+                    onToggle = { viewModel.onEvent(MCPSkillEvent.ToggleSkillEnabled(it)) }
                 )
                 1 -> MCPServerList(
                     servers = uiState.mcpServers,
@@ -109,7 +110,8 @@ fun MCPSkillManageScreen(
                     onAdd = { viewModel.onEvent(MCPSkillEvent.StartEditServer(null)) },
                     onEdit = { viewModel.onEvent(MCPSkillEvent.StartEditServer(it)) },
                     onDelete = { viewModel.onEvent(MCPSkillEvent.DeleteServer(it)) },
-                    onTest = { viewModel.onEvent(MCPSkillEvent.TestServer(it)) }
+                    onTest = { viewModel.onEvent(MCPSkillEvent.TestServer(it)) },
+                    onToggle = { viewModel.onEvent(MCPSkillEvent.ToggleServerEnabled(it)) }
                 )
             }
         }
@@ -122,6 +124,14 @@ fun MCPSkillManageScreen(
             onDismiss = { viewModel.onEvent(MCPSkillEvent.CancelEdit) }
         )
     }
+
+    uiState.editingServer?.let { server ->
+        MCPServerEditDialog(
+            server = server,
+            onSave = { viewModel.onEvent(MCPSkillEvent.SaveServer(it)) },
+            onDismiss = { viewModel.onEvent(MCPSkillEvent.CancelEdit) }
+        )
+    }
 }
 
 @Composable
@@ -131,7 +141,8 @@ private fun MCPServerList(
     onAdd: () -> Unit,
     onEdit: (MCPServer) -> Unit,
     onDelete: (String) -> Unit,
-    onTest: (String) -> Unit
+    onTest: (String) -> Unit,
+    onToggle: (String) -> Unit
 ) {
     if (servers.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -173,7 +184,8 @@ private fun MCPServerList(
                         testResult = testResults[server.id],
                         onEdit = { onEdit(server) },
                         onDelete = { onDelete(server.id) },
-                        onTest = { onTest(server.id) }
+                        onTest = { onTest(server.id) },
+                        onToggle = { onToggle(server.id) }
                     )
                 }
             }
@@ -187,7 +199,8 @@ private fun MCPServerCard(
     testResult: String?,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onTest: () -> Unit
+    onTest: () -> Unit,
+    onToggle: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
@@ -200,7 +213,7 @@ private fun MCPServerCard(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                     }
                 }
-                Switch(checked = server.isEnabled, onCheckedChange = { onEdit() })
+                Switch(checked = server.isEnabled, onCheckedChange = { onToggle() })
             }
             Spacer(Modifier.height(8.dp))
             Text(server.url, style = MaterialTheme.typography.bodySmall,
@@ -294,7 +307,8 @@ private fun SkillPluginList(
     skills: List<SkillPlugin>,
     onAdd: () -> Unit,
     onEdit: (SkillPlugin) -> Unit,
-    onDelete: (String) -> Unit
+    onDelete: (String) -> Unit,
+    onToggle: (String) -> Unit
 ) {
     if (skills.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -334,7 +348,8 @@ private fun SkillPluginList(
                     SkillCard(
                         skill = skill,
                         onEdit = { onEdit(skill) },
-                        onDelete = { onDelete(skill.id) }
+                        onDelete = { onDelete(skill.id) },
+                        onToggle = { onToggle(skill.id) }
                     )
                 }
             }
@@ -346,7 +361,8 @@ private fun SkillPluginList(
 private fun SkillCard(
     skill: SkillPlugin,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onToggle: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
@@ -359,7 +375,7 @@ private fun SkillCard(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                     }
                 }
-                Switch(checked = skill.isEnabled, onCheckedChange = { onEdit() })
+                Switch(checked = skill.isEnabled, onCheckedChange = { onToggle() })
             }
             Spacer(Modifier.height(4.dp))
             Text(skill.category.label, style = MaterialTheme.typography.labelSmall,
