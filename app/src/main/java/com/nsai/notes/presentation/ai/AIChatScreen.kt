@@ -304,10 +304,12 @@ fun AIChatScreen(
                 verticalArrangement = Arrangement.spacedBy(if (immersive) 6.dp else 16.dp)
             ) {
                 items(uiState.messages, key = { it.timestamp }) { message ->
+                    val lastAiMsg = uiState.messages.lastOrNull { it.role == ChatMessage.Role.ASSISTANT }
+                    val isLast = message == lastAiMsg
                     Box(Modifier.animateItem()) {
                         when (message.role) {
                             ChatMessage.Role.SYSTEM -> SystemMessage(message)
-                            else -> MessageBubble(message, immersive, onUrlClick = { url ->
+                            else -> MessageBubble(message, immersive, isLastAIMessage = isLast, skipTypewriter = userScrolledUp, onUrlClick = { url ->
                             browserUrl = url; showBrowser = true
                         }, onAppendToNote = if (message.role != ChatMessage.Role.USER) {
                             {
@@ -374,7 +376,7 @@ fun AIChatScreen(
 
 // ── Message Bubble ──
 @Composable
-private fun MessageBubble(message: ChatMessage, immersive: Boolean, onUrlClick: (String) -> Unit, onAppendToNote: (() -> Unit)? = null) {
+private fun MessageBubble(message: ChatMessage, immersive: Boolean, isLastAIMessage: Boolean = false, skipTypewriter: Boolean = false, onUrlClick: (String) -> Unit, onAppendToNote: (() -> Unit)? = null) {
     val isUser = message.role == ChatMessage.Role.USER
     val tokens = LocalAnimationConfig.current
     val alignment = if (isUser) Alignment.End else Alignment.Start
@@ -384,14 +386,14 @@ private fun MessageBubble(message: ChatMessage, immersive: Boolean, onUrlClick: 
     else RoundedCornerShape(4.dp, 20.dp, 20.dp, 20.dp)
     val maxW = if (immersive) 380.dp else 320.dp
 
-    // Typewriter effect for AI messages
-    var displayedChars by remember(message.content) { mutableStateOf(if (isUser) message.content.length else 1) }
-    if (!isUser) {
+    // Typewriter effect for AI messages — only for the last AI message, not during scroll
+    val initialChars = if (isUser || skipTypewriter || !isLastAIMessage) message.content.length else 1
+    var displayedChars by remember(message.content) { mutableStateOf(initialChars) }
+    if (!isUser && isLastAIMessage && !skipTypewriter) {
         LaunchedEffect(message.content) {
-            val target = message.content.length
-            while (displayedChars < target) {
-                delay(15L) // ~66 chars/sec
-                displayedChars = (displayedChars + 4).coerceAtMost(target)
+            while (displayedChars < message.content.length) {
+                delay(33L)
+                displayedChars = (displayedChars + 8).coerceAtMost(message.content.length)
             }
         }
     }

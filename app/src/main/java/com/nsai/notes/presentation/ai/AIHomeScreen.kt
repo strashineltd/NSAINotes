@@ -597,8 +597,9 @@ private fun ChatView(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
             items(messages, key = { it.timestamp }) { msg ->
+            val lastAiMsg = messages.lastOrNull { it.role == ChatMessage.Role.ASSISTANT }
             Box(Modifier.animateItem()) {
-                ChatBubble(msg, onUrlClick,
+                ChatBubble(msg, isLastAIMessage = msg == lastAiMsg, onUrlClick,
                 onSaveAsNote = { content -> onSaveAsNote(content) },
                 onRetry = { onRetry() })
             }
@@ -650,7 +651,7 @@ private fun ThinkingDots(modifier: Modifier = Modifier) {
 
 // ─── Chat Bubble ───
 @Composable
-private fun ChatBubble(message: ChatMessage, onUrlClick: (String) -> Unit = {}, onSaveAsNote: (String) -> Unit = {}, onRetry: () -> Unit = {}) {
+private fun ChatBubble(message: ChatMessage, isLastAIMessage: Boolean = false, onUrlClick: (String) -> Unit = {}, onSaveAsNote: (String) -> Unit = {}, onRetry: () -> Unit = {}) {
     val tokens = LocalAnimationConfig.current
     val isUser = message.role == ChatMessage.Role.USER
     val alignment = if (isUser) Alignment.End else Alignment.Start
@@ -659,14 +660,14 @@ private fun ChatBubble(message: ChatMessage, onUrlClick: (String) -> Unit = {}, 
     val shape = if (isUser) RoundedCornerShape(16.dp, 4.dp, 16.dp, 16.dp)
     else RoundedCornerShape(4.dp, 16.dp, 16.dp, 16.dp)
 
-    // Typewriter effect for AI messages
-    var displayedChars by remember(message.content) { mutableStateOf(if (isUser) message.content.length else 1) }
-    if (!isUser) {
+    // Typewriter effect for AI messages — only for the last AI message
+    val initialChars = if (isUser || !isLastAIMessage) message.content.length else 1
+    var displayedChars by remember(message.content) { mutableStateOf(initialChars) }
+    if (!isUser && isLastAIMessage) {
         LaunchedEffect(message.content) {
-            val target = message.content.length
-            while (displayedChars < target) {
-                delay(15L)
-                displayedChars = (displayedChars + 4).coerceAtMost(target)
+            while (displayedChars < message.content.length) {
+                delay(33L)
+                displayedChars = (displayedChars + 8).coerceAtMost(message.content.length)
             }
         }
     }
@@ -706,8 +707,9 @@ private fun ChatBubble(message: ChatMessage, onUrlClick: (String) -> Unit = {}, 
                     }
                 }
                 if (isUser || typewriterDone) {
+                    val urlText = remember(message.content) { buildUrlText(message.content) }
                     androidx.compose.foundation.text.ClickableText(
-                        text = buildUrlText(message.content),
+                        text = urlText,
                         style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                         onClick = { o -> com.nsai.notes.presentation.ai.getUrlAt(message.content, o)?.let { onUrlClick(it) } }
