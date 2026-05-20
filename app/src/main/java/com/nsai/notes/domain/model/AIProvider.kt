@@ -19,7 +19,7 @@ enum class AIProvider(
     val supportsVision: Boolean = false
 ) {
     DEEPSEEK(
-        displayName = "DeepSeek-v4Pro",
+        displayName = "DeepSeek-v4-Pro",
         defaultBaseUrl = "https://api.deepseek.com/v1",
         quickModel = "deepseek-chat",
         thinkModel = "deepseek-reasoner",
