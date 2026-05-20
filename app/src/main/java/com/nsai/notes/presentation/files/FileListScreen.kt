@@ -124,8 +124,7 @@ fun FileListScreen(viewModel: FileListViewModel = hiltViewModel()) {
                             if (folderCount > 0) Text("文件夹 ($folderCount)", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 8.dp))
                         }
                         itemsIndexed(uiState.files, key = { _, f -> f.path }) { index, file ->
-                            val staggeredDelay = tokens.staggeredDelay * index.coerceAtMost(6)
-                            AnimatedVisibility(visible = true, modifier = Modifier.animateItem(), enter = fadeIn(tween(durationMillis = tokens.normalDuration, delayMillis = staggeredDelay)) + slideInVertically(tween(durationMillis = tokens.normalDuration, delayMillis = staggeredDelay)) { it / 6 }) {
+                            Box(Modifier.animateItem()) {
                                 FileRow(file = file, onDelete = { viewModel.onEvent(FileListEvent.DeleteItem(file)) }, onRename = { viewModel.onEvent(FileListEvent.StartRename(file)) },
                                     onTogglePrivate = { viewModel.onEvent(FileListEvent.TogglePrivate(file)) }, isPrivateUnlocked = uiState.isPrivateUnlocked,
                                     onClick = { if (file.isDirectory) viewModel.onEvent(FileListEvent.OpenFolder(file)) else viewModel.onEvent(FileListEvent.OpenFile(file)) })

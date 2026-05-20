@@ -264,8 +264,7 @@ fun NoteListScreen(
                     uiState.notes.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(if (uiState.isSearchActive) "未找到匹配的笔记" else "还没有笔记，点右下角创建", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) }
                     else -> LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         itemsIndexed(items = uiState.notes, key = { _, note -> "${note.id}_${note.updatedAt}" }, contentType = { _, _ -> "note_card" }) { index, note ->
-                            val delay = (index * 50).coerceAtMost(300)
-                            AnimatedNoteItem(delay = delay, modifier = Modifier.animateItem()) {
+                            Box(Modifier.animateItem()) {
                                 NoteCardWithMenu(
                                     note = note,
                                     onClick = {
@@ -315,22 +314,4 @@ private fun NoteCardWithMenu(
             onLongClick = onLongClick
         )
     )
-}
-
-@Composable
-private fun AnimatedNoteItem(
-    delay: Int,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
-) {
-    val tokens = LocalAnimationConfig.current
-    val effectiveDelay = tokens.staggeredDelay.takeIf { delay > 0 }?.let { it * (delay / 50).coerceAtMost(6) } ?: 0
-    AnimatedVisibility(
-        visible = true,
-        modifier = modifier,
-        enter = fadeIn(animationSpec = tween(durationMillis = tokens.normalDuration, delayMillis = effectiveDelay)) +
-                slideInVertically(animationSpec = tween(durationMillis = tokens.normalDuration, delayMillis = effectiveDelay)) { it / 4 }
-    ) {
-        content()
-    }
 }

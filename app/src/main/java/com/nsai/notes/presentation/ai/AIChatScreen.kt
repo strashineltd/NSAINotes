@@ -480,10 +480,11 @@ private fun SystemMessage(message: ChatMessage) {
 // ── Loading Bubble ──
 @Composable
 private fun LoadingBubble(immersive: Boolean) {
+    val tokens = LocalAnimationConfig.current
     val infinite = rememberInfiniteTransition(label = "load")
-    val a1 by infinite.animateFloat(0f, 1f, infiniteRepeatable(tween(600), RepeatMode.Restart), label = "l1")
-    val a2 by infinite.animateFloat(0f, 1f, infiniteRepeatable(tween(600), RepeatMode.Restart), label = "l2")
-    val a3 by infinite.animateFloat(0f, 1f, infiniteRepeatable(tween(600), RepeatMode.Restart), label = "l3")
+    val a1 by infinite.animateFloat(0f, 1f, infiniteRepeatable(tween(tokens.normalDuration * 2), RepeatMode.Restart), label = "l1")
+    val a2 by infinite.animateFloat(0f, 1f, infiniteRepeatable(tween(tokens.normalDuration * 2), RepeatMode.Restart), label = "l2")
+    val a3 by infinite.animateFloat(0f, 1f, infiniteRepeatable(tween(tokens.normalDuration * 2), RepeatMode.Restart), label = "l3")
 
     Row(Modifier.padding(start = if (immersive) 4.dp else 16.dp),
         verticalAlignment = Alignment.CenterVertically) {

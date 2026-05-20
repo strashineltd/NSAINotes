@@ -173,12 +173,7 @@ private fun MCPServerList(
                 }
             }
             items(servers, key = { it.id }) { server ->
-                val delay = (servers.indexOf(server) * tokens.staggeredDelay).coerceAtMost(tokens.normalDuration)
-                AnimatedVisibility(
-                    visible = true,
-                    modifier = Modifier.animateItem(),
-                    enter = fadeIn(tween(durationMillis = tokens.normalDuration, delayMillis = delay)) + slideInVertically(tween(durationMillis = tokens.normalDuration, delayMillis = delay)) { it / 6 }
-                ) {
+                Box(Modifier.animateItem()) {
                     MCPServerCard(
                         server = server,
                         testResult = testResults[server.id],
@@ -339,12 +334,7 @@ private fun SkillPluginList(
                 }
             }
             items(skills, key = { it.id }) { skill ->
-                val delay = (skills.indexOf(skill) * tokens.staggeredDelay).coerceAtMost(tokens.normalDuration)
-                AnimatedVisibility(
-                    visible = true,
-                    modifier = Modifier.animateItem(),
-                    enter = fadeIn(tween(durationMillis = tokens.normalDuration, delayMillis = delay)) + slideInVertically(tween(durationMillis = tokens.normalDuration, delayMillis = delay)) { it / 6 }
-                ) {
+                Box(Modifier.animateItem()) {
                     SkillCard(
                         skill = skill,
                         onEdit = { onEdit(skill) },

@@ -48,12 +48,12 @@ class FluidityManager @Inject constructor(
         } else if (metrics.dropRate < 0.03f) {
             consecutiveJankFrames = 0
             smoothWindowCount++
-            if (animationBudget < AnimationBudget.FULL && smoothWindowCount >= 5) {
+            if (animationBudget < AnimationBudget.FULL && smoothWindowCount >= 3) {
                 upgradeAnimations()
             }
         } else {
+            // Intermediate drop rate: hold steady, only reset on real jank
             consecutiveJankFrames = maxOf(0, consecutiveJankFrames - 1)
-            smoothWindowCount = 0
         }
 
         if (metrics.dropRate > 0.10f) lastJankTime = now

@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -103,8 +104,7 @@ fun TagManageScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 itemsIndexed(uiState.tags, key = { _, tag -> tag.id }) { index, tag ->
-                    val delay = (index * 50).coerceAtMost(300)
-                    AnimatedTagItem(delay = delay, modifier = Modifier.animateItem()) {
+                    Box(Modifier.animateItem()) {
                         Card(
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -134,23 +134,5 @@ fun TagManageScreen(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun AnimatedTagItem(
-    delay: Int,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
-) {
-    val tokens = LocalAnimationConfig.current
-    val effectiveDelay = tokens.staggeredDelay.takeIf { delay > 0 }?.let { it * (delay / 50).coerceAtMost(6) } ?: 0
-    AnimatedVisibility(
-        visible = true,
-        modifier = modifier,
-        enter = fadeIn(animationSpec = tween(durationMillis = tokens.normalDuration, delayMillis = effectiveDelay)) +
-                slideInVertically(animationSpec = tween(durationMillis = tokens.normalDuration, delayMillis = effectiveDelay)) { it / 4 }
-    ) {
-        content()
     }
 }

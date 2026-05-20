@@ -83,12 +83,7 @@ fun MemoryViewScreen(onNavigateBack: () -> Unit) {
                     }
                     items(memories, key = { it.id }) { memory ->
                         itemIndex++
-                        val delay = (itemIndex * tokens.staggeredDelay).coerceAtMost(tokens.normalDuration)
-                    AnimatedVisibility(
-                        visible = true,
-                        modifier = Modifier.animateItem(),
-                        enter = fadeIn(tween(durationMillis = tokens.normalDuration, delayMillis = delay)) + slideInVertically(tween(durationMillis = tokens.normalDuration, delayMillis = delay)) { it / 6 }
-                    ) {
+                    Box(Modifier.animateItem()) {
                         Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
                                 Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.Top) {
                                     Icon(typeIcon(type), null, Modifier.size(20.dp).padding(top = 2.dp), tint = typeColor(type))
