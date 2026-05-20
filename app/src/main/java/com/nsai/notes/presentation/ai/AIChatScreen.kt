@@ -9,6 +9,8 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -26,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -41,6 +44,7 @@ import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -48,6 +52,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -72,7 +78,10 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.ContentScale
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
+import com.nsai.notes.data.remote.search.SearchResult
 import com.nsai.notes.domain.model.AIProvider
 import com.nsai.notes.domain.model.AIMode
 import com.nsai.notes.domain.model.ChatMessage
@@ -261,6 +270,16 @@ fun AIChatScreen(
                                 inner()
                             }
                         )
+                        IconButton(
+                            onClick = { viewModel.onEvent(AIChatEvent.ToggleWebSearch) },
+                            modifier = Modifier.size(40.dp).clip(CircleShape).background(
+                                if (uiState.isWebSearchMode) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                else MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Icon(Icons.Default.TravelExplore, "联网搜索", Modifier.size(18.dp),
+                                tint = if (uiState.isWebSearchMode) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+                        }
                         val canSend = uiState.inputText.isNotBlank() && !uiState.isLoading
                         IconButton(
                             onClick = { userScrolledUp = false; viewModel.onEvent(AIChatEvent.SendMessage) },
@@ -299,6 +318,34 @@ fun AIChatScreen(
                         }
                     }
                 }
+                if (uiState.searchResults.isNotEmpty()) {
+                    item(key = "search_results") {
+                        Card(
+                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f))
+                        ) {
+                            Column(Modifier.padding(14.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.TravelExplore, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("联网搜索", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                uiState.searchResults.take(5).forEach { r ->
+                                    Row(Modifier.fillMaxWidth().clickable { browserUrl = r.url; showBrowser = true }.padding(vertical = 6.dp),
+                                        verticalAlignment = Alignment.Top) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(r.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(r.snippet.take(80), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 if (uiState.isLoading) {
                     item { LoadingBubble(immersive) }
                 }
@@ -329,6 +376,7 @@ fun AIChatScreen(
 @Composable
 private fun MessageBubble(message: ChatMessage, immersive: Boolean, onUrlClick: (String) -> Unit, onAppendToNote: (() -> Unit)? = null) {
     val isUser = message.role == ChatMessage.Role.USER
+    val tokens = LocalAnimationConfig.current
     val alignment = if (isUser) Alignment.End else Alignment.Start
     val bg = if (isUser) MaterialTheme.colorScheme.primaryContainer
     else MaterialTheme.colorScheme.surfaceVariant
@@ -362,15 +410,35 @@ private fun MessageBubble(message: ChatMessage, immersive: Boolean, onUrlClick: 
         }
 
         if (!isUser && message.reasoningContent != null) {
+            var reasoningExpanded by remember { mutableStateOf(false) }
             Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface,
                 modifier = Modifier.widthIn(max = maxW).padding(bottom = 4.dp)) {
-                Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Psychology, null, Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
-                    Spacer(Modifier.width(6.dp))
-                    Text(message.reasoningContent ?: "", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                        maxLines = 4, overflow = TextOverflow.Ellipsis)
+                Column {
+                    Row(
+                        Modifier.clickable { reasoningExpanded = !reasoningExpanded }
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Psychology, null, Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                        Spacer(Modifier.width(6.dp))
+                        Text("思考过程", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                            modifier = Modifier.weight(1f))
+                        Text(if (reasoningExpanded) "收起" else "展开",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
+                    }
+                    AnimatedVisibility(reasoningExpanded,
+                        enter = expandVertically(tween(tokens.fastDuration)) + fadeIn(tween(tokens.fastDuration)),
+                        exit = shrinkVertically(tween(tokens.fastDuration)) + fadeOut(tween(tokens.fastDuration))
+                    ) {
+                        Text(message.reasoningContent ?: "",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)),
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                                .padding(horizontal = 14.dp, vertical = 8.dp))
+                    }
                 }
             }
         }

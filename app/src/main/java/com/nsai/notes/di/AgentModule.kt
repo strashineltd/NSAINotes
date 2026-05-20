@@ -20,4 +20,8 @@ abstract class AgentModule {
     @Binds @IntoSet @Singleton abstract fun bindUpdateNoteTool(tool: UpdateNoteTool): AgentTool
     @Binds @IntoSet @Singleton abstract fun bindDeleteNoteTool(tool: DeleteNoteTool): AgentTool
     @Binds @IntoSet @Singleton abstract fun bindGetTimeTool(tool: GetTimeTool): AgentTool
+    @Binds @IntoSet @Singleton abstract fun bindCreateFolderTool(tool: CreateFolderTool): AgentTool
+    @Binds @IntoSet @Singleton abstract fun bindDeleteFolderTool(tool: DeleteFolderTool): AgentTool
+    @Binds @IntoSet @Singleton abstract fun bindReadFileTool(tool: ReadFileTool): AgentTool
+    @Binds @IntoSet @Singleton abstract fun bindWriteFileTool(tool: WriteFileTool): AgentTool
 }

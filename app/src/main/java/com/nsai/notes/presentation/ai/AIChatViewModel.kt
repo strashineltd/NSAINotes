@@ -4,15 +4,19 @@ import androidx.compose.runtime.Stable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nsai.notes.data.local.datastore.SettingsDataStore
+import com.nsai.notes.data.remote.search.SearchResult
+import com.nsai.notes.data.remote.search.WebSearchService
 import com.nsai.notes.domain.model.AIProvider
 import com.nsai.notes.domain.model.AIMode
 import com.nsai.notes.domain.model.ChatMessage
 import com.nsai.notes.domain.usecase.ai.AskAIUseCase
 import com.nsai.notes.domain.usecase.ai.SummarizeNoteUseCase
 import com.nsai.notes.domain.usecase.note.GetNoteUseCase
+import com.nsai.notes.domain.repository.AIService
 import com.nsai.notes.domain.repository.NoteRepository
 import com.nsai.notes.domain.model.Note
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,7 +37,12 @@ data class AIChatUiState(
     val searchEngineCustomUrl: String = "",
     val bookmarks: List<SettingsDataStore.Bookmark> = emptyList(),
     val searchHistory: List<String> = emptyList(),
-    val currentMode: AIMode = AIMode.QUICK
+    val currentMode: AIMode = AIMode.QUICK,
+    val isWebSearchMode: Boolean = false,
+    val searchResults: List<SearchResult> = emptyList(),
+    val imagePrompt: String = "",
+    val generatedImage: String? = null,
+    val currentImageSize: String = "1024x1024"
 )
 
 sealed class AIChatEvent {
@@ -43,6 +52,10 @@ sealed class AIChatEvent {
     data object Summarize : AIChatEvent()
     data class SelectProvider(val provider: AIProvider) : AIChatEvent()
     data class SelectMode(val mode: AIMode) : AIChatEvent()
+    data class UpdateImagePrompt(val prompt: String) : AIChatEvent()
+    data object GenerateImage : AIChatEvent()
+    data class SelectImageSize(val size: String) : AIChatEvent()
+    data object ToggleWebSearch : AIChatEvent()
     data object ClearError : AIChatEvent()
     data object DismissSummary : AIChatEvent()
     data class SetSearchEngine(val engine: String) : AIChatEvent()
@@ -60,13 +73,16 @@ class AIChatViewModel @Inject constructor(
     private val summarizeNoteUseCase: SummarizeNoteUseCase,
     private val getNoteUseCase: GetNoteUseCase,
     private val noteRepository: NoteRepository,
-    private val settingsDataStore: SettingsDataStore
+    private val settingsDataStore: SettingsDataStore,
+    private val webSearchService: WebSearchService,
+    private val aiService: AIService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AIChatUiState())
     val uiState: StateFlow<AIChatUiState> = _uiState.asStateFlow()
 
     private var noteId: Long? = null
+    private var sendJob: Job? = null
 
     init {
         loadSelectedProvider()
@@ -121,11 +137,50 @@ class AIChatViewModel @Inject constructor(
             AIChatEvent.ClearSearchHistory -> clearSearchHistory()
             is AIChatEvent.AppendToNote -> appendToNote(event.text)
             is AIChatEvent.SelectMode -> selectMode(event.mode)
+            AIChatEvent.ToggleWebSearch -> toggleWebSearch()
+            is AIChatEvent.UpdateImagePrompt -> updateImagePrompt(event.prompt)
+            AIChatEvent.GenerateImage -> generateImage()
+            is AIChatEvent.SelectImageSize -> selectImageSize(event.size)
         }
     }
 
     private fun selectMode(mode: AIMode) {
         _uiState.value = _uiState.value.copy(currentMode = mode)
+    }
+
+    private fun updateImagePrompt(prompt: String) {
+        _uiState.value = _uiState.value.copy(imagePrompt = prompt)
+    }
+
+    private fun selectImageSize(size: String) {
+        _uiState.value = _uiState.value.copy(currentImageSize = size)
+    }
+
+    private fun generateImage() {
+        val prompt = _uiState.value.imagePrompt.trim()
+        if (prompt.isBlank()) return
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null, generatedImage = null)
+        sendJob?.cancel()
+        sendJob = viewModelScope.launch {
+            try {
+                if (!_uiState.value.selectedProvider.supportsImage) {
+                    _uiState.value = _uiState.value.copy(isLoading = false, error = "当前模型不支持图片生成")
+                    return@launch
+                }
+                val response = aiService.generateImage(_uiState.value.selectedProvider, prompt)
+                _uiState.value = _uiState.value.copy(isLoading = false, generatedImage = response.content)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message ?: "生成失败")
+            }
+        }
+    }
+
+    private fun toggleWebSearch() {
+        val wasActive = _uiState.value.isWebSearchMode
+        _uiState.value = _uiState.value.copy(
+            isWebSearchMode = !wasActive,
+            searchResults = if (wasActive) emptyList() else _uiState.value.searchResults
+        )
     }
 
     private fun appendToNote(text: String) {
@@ -207,6 +262,8 @@ class AIChatViewModel @Inject constructor(
         val text = _uiState.value.inputText.trim()
         if (text.isBlank()) return
 
+        sendJob?.cancel()
+
         val userMessage = ChatMessage(role = ChatMessage.Role.USER, content = text)
         _uiState.value = _uiState.value.copy(
             messages = _uiState.value.messages + userMessage,
@@ -215,10 +272,28 @@ class AIChatViewModel @Inject constructor(
             error = null
         )
 
-        viewModelScope.launch {
-            val note = noteId?.let { getNoteUseCase(it).first() }
+        sendJob = viewModelScope.launch {
+            // Perform web search first if in search mode
+            var searchContext = ""
+            if (_uiState.value.isWebSearchMode) {
+                val sResults = webSearchService.search(text)
+                _uiState.value = _uiState.value.copy(searchResults = sResults)
+                if (sResults.isNotEmpty()) {
+                    searchContext = buildString {
+                        appendLine("以下是联网搜索的结果，请基于这些信息回答用户问题：")
+                        sResults.take(5).forEachIndexed { i, r ->
+                            appendLine("${i + 1}. ${r.title}")
+                            appendLine("   ${r.snippet.take(200)}")
+                        }
+                        appendLine()
+                    }
+                }
+            }
+
+            val finalQuestion = if (searchContext.isNotBlank()) "$searchContext\n[用户问题]\n$text" else text
+            val note = noteId?.let { runCatching { getNoteUseCase(it).first() }.getOrNull() }
             val result = askAIUseCase(
-                question = text,
+                question = finalQuestion,
                 provider = _uiState.value.selectedProvider,
                 noteContext = note,
                 mode = _uiState.value.currentMode

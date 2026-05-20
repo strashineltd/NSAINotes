@@ -23,7 +23,8 @@ enum class AIProvider(
         defaultBaseUrl = "https://api.deepseek.com/v1",
         quickModel = "deepseek-chat",
         thinkModel = "deepseek-reasoner",
-        imageModel = null
+        imageModel = "janus-pro-7b",
+        supportsVision = true
     ),
     KIMI(
         displayName = "Kimi K2.6",
@@ -45,14 +46,14 @@ enum class AIProvider(
         defaultBaseUrl = "https://api.minimax.chat/v1",
         quickModel = "minimax-text-01",
         thinkModel = "minimax-text-01",
-        imageModel = null
+        imageModel = "image-01"
     ),
     QWEN(
         displayName = "Qwen3.6Max",
         defaultBaseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1",
         quickModel = "qwen3-max",
         thinkModel = "qwen3-max",
-        imageModel = null,
+        imageModel = "qwen3-max",
         supportsVision = true
     ),
     MIMO(

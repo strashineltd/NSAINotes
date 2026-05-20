@@ -23,6 +23,7 @@ import com.nsai.notes.domain.usecase.ai.AskAIUseCase
 import com.nsai.notes.domain.usecase.note.GetAllNotesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -107,6 +108,7 @@ class AIHomeViewModel @Inject constructor(
     fun getLicenseFeatures(): List<String> = licenseManager.features.value
     private val _uiState = MutableStateFlow(AIHomeUiState())
     val uiState: StateFlow<AIHomeUiState> = _uiState.asStateFlow()
+    private var sendJob: Job? = null
 
     init {
         loadSelectedProvider()        // needed for UI display
@@ -336,25 +338,34 @@ class AIHomeViewModel @Inject constructor(
         val text = _uiState.value.inputText.trim()
         if (text.isBlank()) return
 
-        val searchPrefix = if (_uiState.value.isWebSearchMode)
-            "[联网搜索模式] 请基于你的知识尽可能搜索并提供最新信息来回答：\n" else ""
-        val augmentedText = searchPrefix + text
-        val userMsg = ChatMessage(ChatMessage.Role.USER, augmentedText)
+        sendJob?.cancel()
+
+        val userMsg = ChatMessage(ChatMessage.Role.USER, text)
         _uiState.value = _uiState.value.copy(
             messages = _uiState.value.messages + userMsg, inputText = "",
             isLoading = true, error = null, searchResults = emptyList()
         )
 
-        // Perform web search if in search mode
-        if (_uiState.value.isWebSearchMode) {
-            viewModelScope.launch {
-                val results = webSearchService.search(text)
-                _uiState.value = _uiState.value.copy(searchResults = results)
-            }
-        }
-
-        viewModelScope.launch {
+        sendJob = viewModelScope.launch {
             try {
+                // Perform web search first and build context for AI
+                var searchResults = emptyList<com.nsai.notes.data.remote.search.SearchResult>()
+                var searchContext = ""
+                if (_uiState.value.isWebSearchMode) {
+                    searchResults = webSearchService.search(text)
+                    _uiState.value = _uiState.value.copy(searchResults = searchResults)
+                    if (searchResults.isNotEmpty()) {
+                        searchContext = buildString {
+                            appendLine("以下是联网搜索的结果，请基于这些信息回答用户问题：")
+                            searchResults.take(5).forEachIndexed { i, r ->
+                                appendLine("${i + 1}. ${r.title}")
+                                appendLine("   ${r.snippet.take(200)}")
+                            }
+                            appendLine()
+                        }
+                    }
+                }
+
                 if (_uiState.value.isAgentMode) {
                     try {
                         val result = reActLoop.execute(text, _uiState.value.selectedProvider)
@@ -371,10 +382,25 @@ class AIHomeViewModel @Inject constructor(
                 } else if (_uiState.value.isDocGenMode) {
                     generateDocument(text)
                 } else {
+                    // Collect enabled skill prompts
+                    val enabledSkillPrompts = settingsDataStore.skillPlugins.first()
+                        .filter { it.isEnabled && it.pluginType == com.nsai.notes.domain.model.SkillPlugin.PluginType.LOCAL_PROMPT }
+                        .map { it.prompt }
                     val finalQuestion = if (_uiState.value.isRagMode) {
                         val context = retrieveContextUseCase.retrieve(text)
-                        if (context.isNotBlank()) "[知识库上下文]\n$context\n\n[用户问题]\n$text" else text
-                    } else text
+                        val parts = mutableListOf<String>()
+                        if (searchContext.isNotBlank()) parts.add(searchContext)
+                        if (enabledSkillPrompts.isNotEmpty()) parts.add("【启用的技能指令】\n${enabledSkillPrompts.joinToString("\n\n")}")
+                        if (context.isNotBlank()) parts.add("[知识库上下文]\n$context")
+                        parts.add("[用户问题]\n$text")
+                        parts.joinToString("\n\n")
+                    } else {
+                        val parts = mutableListOf<String>()
+                        if (searchContext.isNotBlank()) parts.add(searchContext)
+                        if (enabledSkillPrompts.isNotEmpty()) parts.add("【启用的技能指令】\n${enabledSkillPrompts.joinToString("\n\n")}")
+                        parts.add(text)
+                        parts.joinToString("\n\n")
+                    }
                     val result = askAIUseCase(
                         question = finalQuestion,
                         provider = _uiState.value.selectedProvider,

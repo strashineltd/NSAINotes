@@ -3,6 +3,8 @@ package com.nsai.notes.data.remote.ai
 import com.nsai.notes.data.local.datastore.SettingsDataStore
 import com.nsai.notes.data.local.security.ApiKeyProvider
 import com.nsai.notes.domain.model.AIProvider
+import com.nsai.notes.domain.repository.AIOptions
+import com.nsai.notes.domain.repository.AIResponse
 import com.google.gson.Gson
 import okhttp3.OkHttpClient
 import javax.inject.Inject
@@ -16,4 +18,7 @@ class MiniMaxAdapter @Inject constructor(
     gson: Gson
 ) : BaseAIAdapter(settingsDataStore, apiKeyProvider, client, gson) {
     override val provider: AIProvider = AIProvider.MINIMAX
+
+    override suspend fun generateImage(prompt: String, options: AIOptions): AIResponse =
+        executeImageGeneration(prompt, options)
 }
