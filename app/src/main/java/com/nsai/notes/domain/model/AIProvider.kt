@@ -21,9 +21,9 @@ enum class AIProvider(
     DEEPSEEK(
         displayName = "DeepSeek-v4-Pro",
         defaultBaseUrl = "https://api.deepseek.com/v1",
-        quickModel = "deepseek-chat",
-        thinkModel = "deepseek-reasoner",
-        imageModel = "janus-pro-7b",
+        quickModel = "deepseek-v4-pro",
+        thinkModel = "deepseek-v4-pro",
+        imageModel = null,
         supportsVision = true
     ),
     KIMI(
