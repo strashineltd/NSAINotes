@@ -2,6 +2,7 @@ package com.nsai.notes.presentation.ai
 
 import androidx.compose.runtime.Stable
 import com.nsai.notes.data.local.datastore.SettingsDataStore
+import com.nsai.notes.domain.model.SearchEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,7 +13,7 @@ import javax.inject.Singleton
 
 @Stable
 data class SearchSettingsState(
-    val searchEngine: String = "BING",
+    val searchEngine: String = SearchEngine.BING.name,
     val searchEngineCustomUrl: String = "",
     val bookmarks: List<SettingsDataStore.Bookmark> = emptyList(),
     val searchHistory: List<String> = emptyList()

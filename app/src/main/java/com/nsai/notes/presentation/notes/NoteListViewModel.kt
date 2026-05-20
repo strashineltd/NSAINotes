@@ -8,7 +8,11 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.nsai.notes.data.local.datastore.SettingsDataStore
+import com.nsai.notes.data.local.db.dao.NoteDao
 import com.nsai.notes.data.local.db.paging.NotePagingSource
+import com.nsai.notes.data.local.security.KeyStoreManager
+import com.nsai.notes.data.mapper.NoteMapper
+import com.nsai.notes.data.mapper.TagMapper
 import com.nsai.notes.domain.model.Note
 import com.nsai.notes.domain.repository.NoteRepository
 import com.nsai.notes.domain.usecase.note.GetAllNotesUseCase
@@ -16,12 +20,14 @@ import com.nsai.notes.domain.usecase.note.SearchNotesUseCase
 import com.nsai.notes.domain.usecase.note.ToggleFavoriteUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -31,7 +37,8 @@ data class NoteListUiState(
     val isLoading: Boolean = true,
     val error: String? = null,
     val searchQuery: String = "",
-    val isSearchActive: Boolean = false
+    val isSearchActive: Boolean = false,
+    val usePaging: Boolean = false
 )
 
 sealed class NoteListEvent {
@@ -47,11 +54,20 @@ class NoteListViewModel @Inject constructor(
     private val searchNotesUseCase: SearchNotesUseCase,
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
     private val noteRepository: NoteRepository,
-    private val settingsDataStore: SettingsDataStore
+    private val settingsDataStore: SettingsDataStore,
+    private val noteDao: NoteDao,
+    private val noteMapper: NoteMapper,
+    private val tagMapper: TagMapper,
+    private val keyStoreManager: KeyStoreManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NoteListUiState())
     val uiState: StateFlow<NoteListUiState> = _uiState.asStateFlow()
+
+    val pagedNotes: Flow<PagingData<Note>> = Pager(
+        config = PagingConfig(pageSize = 30, enablePlaceholders = false),
+        pagingSourceFactory = { NotePagingSource(noteDao, noteMapper, tagMapper, keyStoreManager) }
+    ).flow.cachedIn(viewModelScope)
 
     private var searchJob: Job? = null
 
@@ -66,22 +82,24 @@ class NoteListViewModel @Inject constructor(
         }
     }
 
+    // Paging threshold: use paging when note count exceeds this
+    private val PAGING_THRESHOLD = 300
+
     private fun loadNotes() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
                 getAllNotesUseCase().collectLatest { notes ->
-                    _uiState.value = _uiState.value.copy(notes = notes, isLoading = false, error = null)
+                    _uiState.value = _uiState.value.copy(
+                        notes = notes, isLoading = false, error = null,
+                        usePaging = notes.size >= PAGING_THRESHOLD
+                    )
                 }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
             }
         }
     }
-
-    // Paging support - use when note count exceeds threshold
-    private val _pagedNotes = MutableStateFlow<PagingData<Note>>(PagingData.empty())
-    // Paging not wired to UI yet - T11 waves into screen layer next
 
     private fun search(query: String) {
         searchJob?.cancel()

@@ -135,8 +135,8 @@ dependencies {
     implementation(libs.onnxruntime.android)
 
     // MLKit
-    implementation("com.google.mlkit:text-recognition:16.0.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+    implementation(libs.mlkit.textrecognition)
+    implementation(libs.coroutines.play.services)
 
     // Testing
     testImplementation(libs.junit)

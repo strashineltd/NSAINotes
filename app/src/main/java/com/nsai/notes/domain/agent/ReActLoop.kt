@@ -18,8 +18,15 @@ class ReActLoop @Inject constructor(
     private val toolRegistry: ToolRegistry,
     private val gson: Gson
 ) {
-    private val maxSteps = 8
-    private val maxRetries = 2
+    var config = ReActConfig()
+        private set
+
+    fun configure(config: ReActConfig) { this.config = config }
+
+    data class ReActConfig(
+        val maxSteps: Int = 8,
+        val maxRetries: Int = 2
+    )
 
     data class ReActStep(
         @SerializedName("thought") val thought: String = "",
@@ -39,7 +46,7 @@ class ReActLoop @Inject constructor(
         synchronized(historyLock) { stepHistory.clear() }
         val systemPrompt = buildSystemPrompt()
 
-        for (step in 1..maxSteps) {
+        for (step in 1..config.maxSteps) {
             val messages = listOf(ChatMessage(ChatMessage.Role.SYSTEM, systemPrompt)) +
                 readStepHistory().flatMap { s ->
                     listOf(
@@ -68,12 +75,12 @@ class ReActLoop @Inject constructor(
             val observation = if (result.success) result.data else "错误: ${result.error}"
             synchronized(historyLock) { stepHistory.add(AgentStepResult(parsed.thought, toolName, observation)) }
         }
-        return "Agent 在 $maxSteps 步内无法完成任务，请尝试更具体的指令。"
+        return "Agent 在 ${config.maxSteps} 步内无法完成任务，请尝试更具体的指令。"
     }
 
     private suspend fun chatWithRetry(provider: AIProvider, messages: List<ChatMessage>, step: Int): AIResponse {
         var lastEx: Exception? = null
-        for (attempt in 0..maxRetries) {
+        for (attempt in 0..config.maxRetries) {
             try {
                 return aiService.chat(provider = provider, messages = messages,
                     options = AIOptions(temperature = 0.3f, maxTokens = 4096))
@@ -81,10 +88,10 @@ class ReActLoop @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 lastEx = e
-                if (attempt < maxRetries) delay(1000L * (attempt + 1))
+                if (attempt < config.maxRetries) delay(1000L * (attempt + 1))
             }
         }
-        throw AIException("Agent AI调用失败(${maxRetries + 1}次重试): ${lastEx?.message}", "")
+        throw AIException("Agent AI调用失败(${config.maxRetries + 1}次重试): ${lastEx?.message}", "")
     }
 
     fun getSteps(): List<AgentStepResult> = synchronized(historyLock) { stepHistory.toList() }

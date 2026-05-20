@@ -45,6 +45,7 @@ class ProductService @Inject constructor(
             val request = Request.Builder().url("$serverUrl/api/v1/products").get().build()
             val response = client.newCall(request).execute()
             val body = response.body?.string() ?: "[]"
+            response.close()
             val gson = com.google.gson.Gson()
             val type = com.google.gson.reflect.TypeToken.getParameterized(List::class.java, ProductInfo::class.java).type
             gson.fromJson<List<ProductInfo>>(body, type)?.filter { it.isActive } ?: emptyList()
@@ -59,7 +60,9 @@ class ProductService @Inject constructor(
             val body = json.toString().toRequestBody("application/json".toMediaType())
             val request = Request.Builder().url("$serverUrl/api/v1/orders").post(body).build()
             val response = client.newCall(request).execute()
-            val r = org.json.JSONObject(response.body?.string() ?: "{}")
+            val respBody = response.body?.string() ?: "{}"
+            response.close()
+            val r = org.json.JSONObject(respBody)
             if (response.isSuccessful) OrderResult(r.optString("order_id", ""), r.optLong("amount", 0), r.optString("status", "pending"))
             else OrderResult(error = r.optString("error", r.optString("message", "创建失败")))
         } catch (e: Exception) { OrderResult(error = "网络错误: ${e.message}") }
@@ -69,7 +72,9 @@ class ProductService @Inject constructor(
         return try {
             val req = Request.Builder().url("$serverUrl/api/v1/orders/$orderId/activation").get().build()
             val resp = client.newCall(req).execute()
-            if (resp.isSuccessful) org.json.JSONObject(resp.body?.string() ?: "{}").optString("activation_code", null)
+            val activationRespBody = resp.body?.string() ?: "{}"
+            resp.close()
+            if (resp.isSuccessful) org.json.JSONObject(activationRespBody).optString("activation_code", null)
             else null
         } catch (_: Exception) { null }
     }

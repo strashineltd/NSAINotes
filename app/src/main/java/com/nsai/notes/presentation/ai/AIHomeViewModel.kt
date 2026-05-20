@@ -14,6 +14,7 @@ import com.nsai.notes.domain.model.AIProvider
 import com.nsai.notes.domain.model.ChatMessage
 import com.nsai.notes.domain.model.Conversation
 import com.nsai.notes.domain.model.Note
+import com.nsai.notes.domain.model.SearchEngine
 import com.nsai.notes.domain.agent.ReActLoop
 import com.nsai.notes.domain.rag.RetrieveContextUseCase
 import com.nsai.notes.domain.repository.AIService
@@ -54,7 +55,7 @@ data class AIHomeUiState(
     val currentConversationId: Long = 0L,
     val showHistory: Boolean = false,
     val searchResults: List<SearchResult> = emptyList(),
-    val searchEngine: String = "BING",
+    val searchEngine: String = SearchEngine.BING.name,
     val searchEngineCustomUrl: String = "",
     val bookmarks: List<SettingsDataStore.Bookmark> = emptyList(),
     val searchHistory: List<String> = emptyList()

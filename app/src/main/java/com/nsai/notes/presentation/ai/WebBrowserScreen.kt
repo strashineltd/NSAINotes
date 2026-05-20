@@ -87,7 +87,7 @@ import com.nsai.notes.presentation.theme.LocalAnimationConfig
 @Composable
 fun WebBrowserDialog(
     initialUrl: String = "",
-    searchEngine: String = "BING",
+    searchEngine: String = SearchEngine.BING.name,
     searchEngineCustomUrl: String = "",
     bookmarksTitles: List<String> = emptyList(),
     bookmarkUrls: List<String> = emptyList(),

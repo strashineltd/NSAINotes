@@ -23,7 +23,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -84,6 +86,7 @@ fun NoteListScreen(
     viewModel: NoteListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val pagingItems = viewModel.pagedNotes.collectAsLazyPagingItems()
     val tokens = LocalAnimationConfig.current
     val scope = rememberCoroutineScope()
     var pinDialog by remember { mutableStateOf<PINDialogState>(PINDialogState.Hidden) }
@@ -262,6 +265,30 @@ fun NoteListScreen(
                     uiState.isLoading -> LoadingIndicator()
                     uiState.error != null -> ErrorView(message = uiState.error ?: "", onRetry = { viewModel.onEvent(NoteListEvent.LoadNotes) })
                     uiState.notes.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(if (uiState.isSearchActive) "未找到匹配的笔记" else "还没有笔记，点右下角创建", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) }
+                    uiState.usePaging -> LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(count = pagingItems.itemCount) { index ->
+                            pagingItems[index]?.let { note ->
+                                Box(Modifier.animateItem()) {
+                                    NoteCardWithMenu(
+                                        note = note,
+                                        onClick = {
+                                            if (note.isPrivate) {
+                                                scope.launch {
+                                                    if (viewModel.getPrivacyPin().isEmpty()) {
+                                                        pinDialog = PINDialogState.Set
+                                                    } else {
+                                                        pinDialog = PINDialogState.Verify(note.id)
+                                                    }
+                                                }
+                                            } else onNavigateToEdit(note.id)
+                                        },
+                                        onToggleFavorite = { viewModel.onEvent(NoteListEvent.ToggleFavorite(note.id)) },
+                                        onLongClick = { bottomSheetNote = note }
+                                    )
+                                }
+                            }
+                        }
+                    }
                     else -> LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         itemsIndexed(items = uiState.notes, key = { _, note -> "${note.id}_${note.updatedAt}" }, contentType = { _, _ -> "note_card" }) { index, note ->
                             Box(Modifier.animateItem()) {

@@ -36,7 +36,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import android.content.Context
 import android.widget.Toast
-import kotlinx.coroutines.launch
 import com.nsai.notes.data.local.datastore.SettingsDataStore
 import com.nsai.notes.domain.model.ThemeMode
 import com.nsai.notes.performance.FluidityManager

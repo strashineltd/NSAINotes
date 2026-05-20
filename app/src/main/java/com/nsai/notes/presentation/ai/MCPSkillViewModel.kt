@@ -148,8 +148,10 @@ class MCPSkillViewModel @Inject constructor(
                         .apply { if (server.apiKey.isNotBlank()) addHeader("Authorization", "Bearer ${server.apiKey}") }
                         .build()
                     val response = client.newCall(request).execute()
-                    if (response.isSuccessful) "连接成功 ✓"
+                    val testResult = if (response.isSuccessful) "连接成功 ✓"
                     else "连接失败 (${response.code})"
+                    response.close()
+                    testResult
                 }
                 _uiState.value = _uiState.value.copy(
                     testResults = _uiState.value.testResults + (serverId to result)

@@ -383,18 +383,6 @@ fun NSAINavGraph(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
-            // Activation route — temporarily removed
-            /* composable(
-                route = Screen.Activation.route,
-                enterTransition = { fadeIn(animationSpec = tween(180)) },
-                exitTransition = { fadeOut(animationSpec = tween(150)) },
-                popEnterTransition = { fadeIn(animationSpec = tween(150)) },
-                popExitTransition = { fadeOut(animationSpec = tween(180)) }
-            ) {
-                com.nsai.notes.presentation.license.ActivationScreen(
-                    onNavigateBack = { navController.popBackStack() }
-                )
-            } */
         }
     }
 }

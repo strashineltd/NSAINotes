@@ -233,7 +233,7 @@ class SettingsDataStore @Inject constructor(
 
     // --- Search Engine ---
     val searchEngineFlow: Flow<String> = dataStore.data.map { prefs ->
-        prefs[Keys.SEARCH_ENGINE] ?: "BAIDU"
+        prefs[Keys.SEARCH_ENGINE] ?: "BING"
     }
 
     val searchEngineCustomUrlFlow: Flow<String> = dataStore.data.map { prefs ->

@@ -30,6 +30,7 @@ class UpdateChecker @Inject constructor(
 
             val response = client.newCall(request).execute()
             val body = response.body?.string() ?: ""
+            response.close()
 
             if (!response.isSuccessful) {
                 return@withContext Result.failure(Exception("检查失败 (${response.code})"))

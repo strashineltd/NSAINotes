@@ -15,6 +15,7 @@ import com.nsai.notes.domain.usecase.note.GetNoteUseCase
 import com.nsai.notes.domain.repository.AIService
 import com.nsai.notes.domain.repository.NoteRepository
 import com.nsai.notes.domain.model.Note
+import com.nsai.notes.domain.model.SearchEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,7 +34,7 @@ data class AIChatUiState(
     val summary: String? = null,
     val isSummarizing: Boolean = false,
     val error: String? = null,
-    val searchEngine: String = "BING",
+    val searchEngine: String = SearchEngine.BING.name,
     val searchEngineCustomUrl: String = "",
     val bookmarks: List<SettingsDataStore.Bookmark> = emptyList(),
     val searchHistory: List<String> = emptyList(),

@@ -46,6 +46,7 @@ class LicenseService @Inject constructor(
                 .build()
             val response = client.newCall(request).execute()
             val responseBody = response.body?.string() ?: """{"valid":false,"message":"服务器无响应"}"""
+            response.close()
             gson.fromJson(responseBody, LicenseValidateResponse::class.java)
         } catch (e: Exception) {
             LicenseValidateResponse(valid = false, message = "网络错误: ${e.message}")

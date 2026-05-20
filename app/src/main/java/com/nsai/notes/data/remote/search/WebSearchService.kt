@@ -60,6 +60,7 @@ class WebSearchService @Inject constructor(
                     .build()
             ).execute()
             val body = response.body?.string() ?: ""
+            response.close()
             if (!response.isSuccessful || body.isBlank()) return@withContext searchDuckDuckGo(query)
 
             val doc = Jsoup.parse(body)
@@ -92,6 +93,7 @@ class WebSearchService @Inject constructor(
 
             val response = client.newCall(request).execute()
             val body = response.body?.string() ?: ""
+            response.close()
             if (!response.isSuccessful || body.isBlank()) return@withContext buildFallback(query, encodedQuery)
 
             val ddgResponse = gson.fromJson(body, DuckDuckGoResponse::class.java)

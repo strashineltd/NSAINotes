@@ -111,6 +111,7 @@ abstract class BaseAIAdapter(
 
             val response = client.newCall(request).execute()
             val responseBody = response.body?.string()
+            response.close()
             if (!response.isSuccessful) throw parseError(response.code, responseBody)
 
             val chatResponse = gson.fromJson(responseBody, ChatResponseBody::class.java)
@@ -142,6 +143,7 @@ abstract class BaseAIAdapter(
 
             val response = client.newCall(request).execute()
             val responseBody = response.body?.string()
+            response.close()
             if (!response.isSuccessful) throw parseError(response.code, responseBody)
 
             val imageResponse = gson.fromJson(responseBody, ChatResponseBody::class.java)

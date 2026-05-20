@@ -31,6 +31,7 @@ class ConnectionTester @Inject constructor(
 
             val response = client.newCall(request).execute()
             val body = response.body?.string() ?: ""
+            response.close()
             if (response.isSuccessful) "连接成功 ✓"
             else "连接失败 (${response.code})"
         }

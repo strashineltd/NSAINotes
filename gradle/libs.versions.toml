@@ -31,6 +31,9 @@ coil = "2.7.0"
 markwon = "4.6.2"
 jsoup = "1.18.3"
 
+mlkit-textrecognition = "16.0.1"
+coroutines-play-services = "1.7.3"
+
 junit = "4.13.2"
 mockito = "5.14.2"
 turbine = "1.2.0"
@@ -112,6 +115,9 @@ turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine
 coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "extJunit" }
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
+
+mlkit-textrecognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "mlkit-textrecognition" }
+coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "coroutines-play-services" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
