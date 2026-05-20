@@ -29,6 +29,7 @@ onnxruntime = "1.18.0"
 
 coil = "2.7.0"
 markwon = "4.6.2"
+jsoup = "1.18.3"
 
 junit = "4.13.2"
 mockito = "5.14.2"
@@ -99,6 +100,7 @@ coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coi
 
 # Markdown
 markwon = { group = "io.noties.markwon", name = "core", version.ref = "markwon" }
+jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 
 # ONNX Runtime
 onnxruntime-android = { group = "com.microsoft.onnxruntime", name = "onnxruntime-android", version.ref = "onnxruntime" }

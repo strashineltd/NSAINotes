@@ -123,6 +123,7 @@ dependencies {
     implementation(libs.profile.installer)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
+    implementation(libs.jsoup)
 
     // Image
     implementation(libs.coil.compose)

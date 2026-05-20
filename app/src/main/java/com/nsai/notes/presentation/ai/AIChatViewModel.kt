@@ -277,7 +277,7 @@ class AIChatViewModel @Inject constructor(
                 // Perform web search first if in search mode
             var searchContext = ""
             if (_uiState.value.isWebSearchMode) {
-                val sResults = webSearchService.search(text)
+                val sResults = webSearchService.search(text, com.nsai.notes.domain.model.SearchEngine.fromName(_uiState.value.searchEngine))
                 _uiState.value = _uiState.value.copy(searchResults = sResults)
                 if (sResults.isNotEmpty()) {
                     searchContext = buildString {

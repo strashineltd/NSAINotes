@@ -353,7 +353,7 @@ class AIHomeViewModel @Inject constructor(
                 var searchResults = emptyList<com.nsai.notes.data.remote.search.SearchResult>()
                 var searchContext = ""
                 if (_uiState.value.isWebSearchMode) {
-                    searchResults = webSearchService.search(text)
+                    searchResults = webSearchService.search(text, com.nsai.notes.domain.model.SearchEngine.fromName(_uiState.value.searchEngine))
                     _uiState.value = _uiState.value.copy(searchResults = searchResults)
                     if (searchResults.isNotEmpty()) {
                         searchContext = buildString {
