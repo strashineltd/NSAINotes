@@ -40,6 +40,7 @@ class SettingsDataStore @Inject constructor(
         val FONT_SCALE = floatPreferencesKey("font_scale")
         val PRIVACY_ACCEPTED = booleanPreferencesKey("privacy_accepted")
         val PRIVACY_PIN = stringPreferencesKey("privacy_pin")
+        val TUTORIAL_COMPLETED = booleanPreferencesKey("tutorial_completed")
         val MCP_SERVERS = stringPreferencesKey("mcp_servers_json")
         val SKILL_PLUGINS = stringPreferencesKey("skill_plugins_json")
         val SEARCH_ENGINE = stringPreferencesKey("search_engine")
@@ -220,6 +221,14 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun setPrivacyPin(pin: String) {
         dataStore.edit { prefs -> prefs[Keys.PRIVACY_PIN] = if (pin.isNotEmpty()) keyStore.encryptToString(pin) else "" }
+    }
+
+    suspend fun isTutorialCompleted(): Boolean {
+        return dataStore.data.first()[Keys.TUTORIAL_COMPLETED] ?: false
+    }
+
+    suspend fun completeTutorial() {
+        dataStore.edit { prefs -> prefs[Keys.TUTORIAL_COMPLETED] = true }
     }
 
     // --- Search Engine ---

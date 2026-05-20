@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import android.content.Context
 import android.widget.Toast
+import kotlinx.coroutines.launch
 import com.nsai.notes.data.local.datastore.SettingsDataStore
 import com.nsai.notes.domain.model.ThemeMode
 import com.nsai.notes.performance.FluidityManager
@@ -45,6 +46,7 @@ import com.nsai.notes.performance.AppPerformanceManager
 import com.nsai.notes.performance.CrashLogService
 import com.nsai.notes.performance.InputThrottler
 import com.nsai.notes.presentation.navigation.NSAINavGraph
+import com.nsai.notes.presentation.common.OnboardingOverlay
 import com.nsai.notes.presentation.theme.AnimationTokens
 import com.nsai.notes.presentation.theme.NSAINotesTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -182,12 +184,21 @@ private fun NSAINotesMainFrame(
     onAcceptPrivacy: suspend () -> Unit
 ) {
     var privacyAccepted by remember { mutableStateOf<Boolean?>(null) }
+    var showTutorial by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
 
     LaunchedEffect(Unit) {
         privacyAccepted = settingsDataStore.isPrivacyAccepted()
         // Security check deferred to background — runs after first frame renders
         checkSecurityThreats(securityChecker, crashLogService, context)
+    }
+
+    // Check tutorial completion after privacy is known
+    LaunchedEffect(privacyAccepted) {
+        if (privacyAccepted == true) {
+            showTutorial = !settingsDataStore.isTutorialCompleted()
+        }
     }
 
     val themeValue by settingsDataStore.themeMode.collectAsState(initial = 0)
@@ -230,6 +241,20 @@ private fun NSAINotesMainFrame(
             color = MaterialTheme.colorScheme.background
         ) {
             NSAINavGraph(fluidityManager = fluidityManager, inputThrottler = inputThrottler)
+        }
+
+        // Tutorial overlay — shown on first launch after privacy acceptance
+        if (showTutorial) {
+            OnboardingOverlay(
+                onComplete = {
+                    scope.launch { settingsDataStore.completeTutorial() }
+                    showTutorial = false
+                },
+                onSkip = {
+                    scope.launch { settingsDataStore.completeTutorial() }
+                    showTutorial = false
+                }
+            )
         }
     }
 }
