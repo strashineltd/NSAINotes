@@ -12,6 +12,8 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -26,15 +28,23 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import android.os.SystemClock
 import android.widget.Toast
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -45,6 +55,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.nsai.notes.performance.FluidityManager
 import com.nsai.notes.performance.InputThrottler
+import com.nsai.notes.performance.AnimationBudget
 import com.nsai.notes.presentation.ai.AIChatScreen
 import com.nsai.notes.presentation.ai.AIHomeScreen
 import com.nsai.notes.presentation.ai.AIModelSettingsScreen
@@ -55,6 +66,7 @@ import com.nsai.notes.presentation.notes.NoteListScreen
 import com.nsai.notes.presentation.settings.SettingsScreen
 import com.nsai.notes.presentation.tags.TagManageScreen
 import com.nsai.notes.presentation.theme.LocalAnimationConfig
+import kotlinx.coroutines.launch
 
 private val tabRoutes = setOf(Screen.NoteList.route, Screen.Files.route, Screen.AIHome.route)
 
@@ -77,7 +89,28 @@ fun NSAINavGraph(
     // Double-back to exit — only on root tab screens
     var backPressTime by remember { mutableLongStateOf(0L) }
     val context = androidx.compose.ui.platform.LocalContext.current
-    BackHandler(enabled = showBottomBar) {
+
+    // Hero transition state
+    var heroState by remember { mutableStateOf<HeroState>(HeroState.Idle) }
+    var aiIconBounds by remember { mutableStateOf(HeroBounds()) }
+    val fluidityConfig by fluidityManager.config.collectAsState()
+    val isHeroAnimating = heroState !is HeroState.Idle
+    val heroBudgetOk = fluidityConfig.animationBudget != AnimationBudget.MINIMAL
+    val scope = rememberCoroutineScope()
+
+    BackHandler(enabled = showBottomBar && !isHeroAnimating) {
+        // On AI tab: single back triggers hero exit back to notes
+        if (currentRoute == Screen.AIHome.route && heroBudgetOk) {
+            heroState = HeroState.Exiting(aiIconBounds)
+            scope.launch {
+                withFrameNanos {  }
+                navController.navigate(Screen.NoteList.route) {
+                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                    launchSingleTop = true; restoreState = true
+                }
+            }
+            return@BackHandler
+        }
         val now = SystemClock.elapsedRealtime()
         if (now - backPressTime < 2000) {
             (context as? android.app.Activity)?.finish()
@@ -98,6 +131,12 @@ fun NSAINavGraph(
             fluidityManager.onScreenChange(screen)
         }
     }
+
+    Box(Modifier.fillMaxSize()) {
+    val density = LocalDensity.current
+    val config = LocalConfiguration.current
+    val screenWidthPx = density.density * config.screenWidthDp
+    val screenHeightPx = density.density * config.screenHeightDp
 
     Scaffold(
         bottomBar = {
@@ -123,7 +162,33 @@ fun NSAINavGraph(
                         NavigationBarItem(
                             selected = selected,
                             onClick = {
-                                if (currentRoute != item.route && inputThrottler.shouldAllowNavigation(item.route)) {
+                                if (isHeroAnimating || currentRoute == item.route) return@NavigationBarItem
+                                // Hero exit: leaving AI tab
+                                if (currentRoute == Screen.AIHome.route && heroBudgetOk) {
+                                    heroState = HeroState.Exiting(aiIconBounds)
+                                    scope.launch {
+                                        withFrameNanos {  }
+                                        navController.navigate(item.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                            launchSingleTop = true; restoreState = true
+                                        }
+                                    }
+                                    return@NavigationBarItem
+                                }
+                                // Hero enter: entering AI tab
+                                if (item.route == Screen.AIHome.route && heroBudgetOk) {
+                                    heroState = HeroState.Entering(aiIconBounds)
+                                    scope.launch {
+                                        withFrameNanos {  }
+                                        navController.navigate(item.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                            launchSingleTop = true; restoreState = true
+                                        }
+                                    }
+                                    return@NavigationBarItem
+                                }
+                                // Normal navigation (Notes ↔ Files)
+                                if (inputThrottler.shouldAllowNavigation(item.route)) {
                                     navController.navigate(item.route) {
                                         popUpTo(navController.graph.findStartDestination().id) {
                                             saveState = true
@@ -134,8 +199,19 @@ fun NSAINavGraph(
                                 }
                             },
                             icon = {
-                                Icon(icon, contentDescription = item.label,
-                                    modifier = Modifier.scale(iconScale))
+                                Box(
+                                    modifier = if (item == BottomNavItem.AI) {
+                                        Modifier.onGloballyPositioned { coords ->
+                                            val pos = coords.positionInWindow()
+                                            val size = coords.size
+                                            val new = HeroBounds(pos.x, pos.y, size.width.toFloat(), size.height.toFloat())
+                                            if (new != aiIconBounds) aiIconBounds = new
+                                        }
+                                    } else Modifier
+                                ) {
+                                    Icon(icon, contentDescription = item.label,
+                                        modifier = Modifier.scale(iconScale))
+                                }
                             },
                             label = { Text(item.label) },
                             colors = NavigationBarItemDefaults.colors(
@@ -220,9 +296,9 @@ fun NSAINavGraph(
             composable(
                 route = Screen.AIHome.route,
                 enterTransition = { fadeIn(animationSpec = tween(tokens.normalDuration)) },
-                exitTransition = { fadeOut(animationSpec = tween(tokens.fastDuration)) },
+                exitTransition = { fadeOut(animationSpec = tween(tokens.normalDuration)) },
                 popEnterTransition = { fadeIn(animationSpec = tween(tokens.normalDuration)) },
-                popExitTransition = { fadeOut(animationSpec = tween(tokens.fastDuration)) }
+                popExitTransition = { fadeOut(animationSpec = tween(tokens.normalDuration)) }
             ) {
                 AIHomeScreen(
                     onNavigateToNoteChat = { noteId ->
@@ -384,5 +460,16 @@ fun NSAINavGraph(
                 )
             }
         }
+    }
+
+    if (heroState !is HeroState.Idle) {
+        HeroOverlay(
+            state = heroState,
+            screenWidthPx = screenWidthPx,
+            screenHeightPx = screenHeightPx,
+            animationSpeedMultiplier = fluidityConfig.animationSpeedMultiplier,
+            onAnimationEnd = { heroState = HeroState.Idle }
+        )
+    }
     }
 }
