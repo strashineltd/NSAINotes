@@ -18,6 +18,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -89,6 +90,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -100,7 +102,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -151,6 +156,10 @@ fun AIHomeScreen(
     var showModelMenu by remember { mutableStateOf(false) }
     var showUpgradeDialog by remember { mutableStateOf(false) }
     val hasConversation = uiState.messages.size > 1
+    val density = LocalDensity.current
+    val config = LocalConfiguration.current
+    val bottomThresholdPx = with(density) { config.screenHeightDp.dp.toPx() * 0.75f }
+    var dragStartY by remember { mutableFloatStateOf(0f) }
 
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
@@ -213,6 +222,15 @@ fun AIHomeScreen(
     }
 
     Scaffold(
+        modifier = Modifier.pointerInput(Unit) {
+            detectVerticalDragGestures(
+                onDragStart = { offset -> dragStartY = offset.y },
+                onVerticalDrag = { _, _ -> },
+                onDragEnd = {
+                    if (dragStartY > bottomThresholdPx) onExitAI()
+                }
+            )
+        },
         topBar = {
             TopAppBar(
                 title = {

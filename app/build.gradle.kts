@@ -14,9 +14,9 @@ android {
         applicationId = "com.nsai.notes"
         minSdk = 26
         targetSdk = 35
-versionCode = 18
-versionName = "1.8 Stable"
+versionCode = 19
 
+        versionName = "1.9 Stable"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

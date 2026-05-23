@@ -112,10 +112,9 @@ class AIHomeViewModel @Inject constructor(
     private var sendJob: Job? = null
 
     init {
-        loadSelectedProvider()        // needed for UI display
-        loadSearchEngine()            // needed for search settings
-        // Deferred: avoids blocking first frame composition
         viewModelScope.launch {
+            loadSelectedProvider()        // needed for UI display
+            loadSearchEngine()            // needed for search settings
             loadNotes()
             loadHistory()
             loadBookmarksAndHistory()

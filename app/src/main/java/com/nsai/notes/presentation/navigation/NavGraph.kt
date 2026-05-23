@@ -31,9 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import android.os.SystemClock
 import android.widget.Toast
 import androidx.compose.ui.Modifier
@@ -63,7 +61,6 @@ import com.nsai.notes.presentation.notes.NoteListScreen
 import com.nsai.notes.presentation.settings.SettingsScreen
 import com.nsai.notes.presentation.tags.TagManageScreen
 import com.nsai.notes.presentation.theme.LocalAnimationConfig
-import kotlinx.coroutines.launch
 
 private val tabRoutes = setOf(Screen.NoteList.route, Screen.Files.route, Screen.AIHome.route)
 
@@ -93,19 +90,16 @@ fun NSAINavGraph(
     val fluidityConfig by fluidityManager.config.collectAsState()
     val isHeroAnimating = heroState !is HeroState.Idle
     val heroBudgetOk = fluidityConfig.animationBudget != AnimationBudget.MINIMAL
-    val scope = rememberCoroutineScope()
+    val effectiveShowBottomBar = showBottomBar || isHeroAnimating
 
     val backHandlerEnabled = (showBottomBar || currentRoute == Screen.AIHome.route) && !isHeroAnimating
     BackHandler(enabled = backHandlerEnabled) {
         // On AI tab: single back triggers hero exit back to notes
         if (currentRoute == Screen.AIHome.route && heroBudgetOk) {
             heroState = HeroState.Exiting(aiIconBounds)
-            scope.launch {
-                withFrameNanos {  }
-                navController.navigate(previousTab) {
-                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                    launchSingleTop = true; restoreState = true
-                }
+            navController.navigate(previousTab) {
+                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                launchSingleTop = true; restoreState = true
             }
             return@BackHandler
         }
@@ -138,7 +132,7 @@ fun NSAINavGraph(
 
     Scaffold(
         bottomBar = {
-            if (showBottomBar) {
+            if (effectiveShowBottomBar) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface
                 ) {
@@ -156,12 +150,9 @@ fun NSAINavGraph(
                                 // Hero exit: leaving AI tab
                                 if (currentRoute == Screen.AIHome.route && heroBudgetOk) {
                                     heroState = HeroState.Exiting(aiIconBounds)
-                                    scope.launch {
-                                        withFrameNanos {  }
-                                        navController.navigate(previousTab) {
-                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                            launchSingleTop = true; restoreState = true
-                                        }
+                                    navController.navigate(previousTab) {
+                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                        launchSingleTop = true; restoreState = true
                                     }
                                     return@NavigationBarItem
                                 }
@@ -169,12 +160,9 @@ fun NSAINavGraph(
                                 if (item.route == Screen.AIHome.route && heroBudgetOk) {
                                     previousTab = currentRoute ?: Screen.NoteList.route
                                     heroState = HeroState.Entering(aiIconBounds)
-                                    scope.launch {
-                                        withFrameNanos {  }
-                                        navController.navigate(item.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                            launchSingleTop = true; restoreState = true
-                                        }
+                                    navController.navigate(item.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                        launchSingleTop = true; restoreState = true
                                     }
                                     return@NavigationBarItem
                                 }
@@ -289,10 +277,22 @@ fun NSAINavGraph(
 
             composable(
                 route = Screen.AIHome.route,
-                enterTransition = { fadeIn(animationSpec = tween(tokens.normalDuration)) },
-                exitTransition = { fadeOut(animationSpec = tween(tokens.normalDuration)) },
-                popEnterTransition = { fadeIn(animationSpec = tween(tokens.normalDuration)) },
-                popExitTransition = { fadeOut(animationSpec = tween(tokens.normalDuration)) }
+                enterTransition = {
+                    if (isHeroAnimating) fadeIn(tween(0))
+                    else fadeIn(animationSpec = tween(tokens.normalDuration))
+                },
+                exitTransition = {
+                    if (isHeroAnimating) fadeOut(tween(0))
+                    else fadeOut(animationSpec = tween(tokens.normalDuration))
+                },
+                popEnterTransition = {
+                    if (isHeroAnimating) fadeIn(tween(0))
+                    else fadeIn(animationSpec = tween(tokens.normalDuration))
+                },
+                popExitTransition = {
+                    if (isHeroAnimating) fadeOut(tween(0))
+                    else fadeOut(animationSpec = tween(tokens.normalDuration))
+                }
             ) {
                 AIHomeScreen(
                     onNavigateToNoteChat = { noteId ->
@@ -307,12 +307,9 @@ fun NSAINavGraph(
                     onExitAI = {
                         if (heroBudgetOk) {
                             heroState = HeroState.Exiting(aiIconBounds)
-                            scope.launch {
-                                withFrameNanos {  }
-                                navController.navigate(previousTab) {
-                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                    launchSingleTop = true; restoreState = true
-                                }
+                            navController.navigate(previousTab) {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true; restoreState = true
                             }
                         }
                     }
