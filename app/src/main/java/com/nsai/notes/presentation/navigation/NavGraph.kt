@@ -2,8 +2,6 @@ package com.nsai.notes.presentation.navigation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -39,7 +37,6 @@ import androidx.compose.runtime.withFrameNanos
 import android.os.SystemClock
 import android.widget.Toast
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -82,7 +79,6 @@ fun NSAINavGraph(
 
     val showBottomBar = currentRoute in listOf(
         Screen.NoteList.route,
-        Screen.AIHome.route,
         Screen.Files.route
     )
 
@@ -93,18 +89,20 @@ fun NSAINavGraph(
     // Hero transition state
     var heroState by remember { mutableStateOf<HeroState>(HeroState.Idle) }
     var aiIconBounds by remember { mutableStateOf(HeroBounds()) }
+    var previousTab by remember { mutableStateOf(Screen.NoteList.route) }
     val fluidityConfig by fluidityManager.config.collectAsState()
     val isHeroAnimating = heroState !is HeroState.Idle
     val heroBudgetOk = fluidityConfig.animationBudget != AnimationBudget.MINIMAL
     val scope = rememberCoroutineScope()
 
-    BackHandler(enabled = showBottomBar && !isHeroAnimating) {
+    val backHandlerEnabled = (showBottomBar || currentRoute == Screen.AIHome.route) && !isHeroAnimating
+    BackHandler(enabled = backHandlerEnabled) {
         // On AI tab: single back triggers hero exit back to notes
         if (currentRoute == Screen.AIHome.route && heroBudgetOk) {
             heroState = HeroState.Exiting(aiIconBounds)
             scope.launch {
                 withFrameNanos {  }
-                navController.navigate(Screen.NoteList.route) {
+                navController.navigate(previousTab) {
                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                     launchSingleTop = true; restoreState = true
                 }
@@ -151,14 +149,6 @@ fun NSAINavGraph(
                             BottomNavItem.AI -> Icons.Default.AutoAwesome
                         }
                         val selected = currentRoute == item.route
-                        val iconScale by animateFloatAsState(
-                            targetValue = if (selected) 1.15f else 1f,
-                            animationSpec = spring(
-                                dampingRatio = tokens.springDamping,
-                                stiffness = tokens.springStiffness
-                            ),
-                            label = "navIconScale"
-                        )
                         NavigationBarItem(
                             selected = selected,
                             onClick = {
@@ -168,7 +158,7 @@ fun NSAINavGraph(
                                     heroState = HeroState.Exiting(aiIconBounds)
                                     scope.launch {
                                         withFrameNanos {  }
-                                        navController.navigate(item.route) {
+                                        navController.navigate(previousTab) {
                                             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                                             launchSingleTop = true; restoreState = true
                                         }
@@ -177,6 +167,7 @@ fun NSAINavGraph(
                                 }
                                 // Hero enter: entering AI tab
                                 if (item.route == Screen.AIHome.route && heroBudgetOk) {
+                                    previousTab = currentRoute ?: Screen.NoteList.route
                                     heroState = HeroState.Entering(aiIconBounds)
                                     scope.launch {
                                         withFrameNanos {  }
@@ -209,8 +200,7 @@ fun NSAINavGraph(
                                         }
                                     } else Modifier
                                 ) {
-                                    Icon(icon, contentDescription = item.label,
-                                        modifier = Modifier.scale(iconScale))
+                                    Icon(icon, contentDescription = item.label)
                                 }
                             },
                             label = { Text(item.label) },
@@ -230,6 +220,7 @@ fun NSAINavGraph(
             startDestination = Screen.NoteList.route,
             modifier = Modifier.padding(innerPadding),
             enterTransition = {
+                if (isHeroAnimating) fadeIn(tween(0)) else
                 if (targetState.destination.route in tabRoutes && initialState.destination.route in tabRoutes) {
                     fadeIn(animationSpec = tween(tokens.fastDuration / 2))
                 } else {
@@ -241,6 +232,7 @@ fun NSAINavGraph(
                 }
             },
             exitTransition = {
+                if (isHeroAnimating) fadeOut(tween(0)) else
                 if (targetState.destination.route in tabRoutes && initialState.destination.route in tabRoutes) {
                     fadeOut(animationSpec = tween(tokens.fastDuration / 2))
                 } else {
@@ -252,6 +244,7 @@ fun NSAINavGraph(
                 }
             },
             popEnterTransition = {
+                if (isHeroAnimating) fadeIn(tween(0)) else
                 slideIntoContainer(
                     towards = AnimatedContentTransitionScope.SlideDirection.End,
                     animationSpec = spring(
@@ -261,6 +254,7 @@ fun NSAINavGraph(
                 ) + fadeIn(animationSpec = tween(tokens.normalDuration))
             },
             popExitTransition = {
+                if (isHeroAnimating) fadeOut(tween(0)) else
                 slideOutOfContainer(
                     towards = AnimatedContentTransitionScope.SlideDirection.End,
                     animationSpec = tween(tokens.normalDuration)
@@ -310,6 +304,18 @@ fun NSAINavGraph(
                     onNavigateToMCPSkill = {
                         navController.navigate(Screen.MCPSkill.route)
                     },
+                    onExitAI = {
+                        if (heroBudgetOk) {
+                            heroState = HeroState.Exiting(aiIconBounds)
+                            scope.launch {
+                                withFrameNanos {  }
+                                navController.navigate(previousTab) {
+                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                    launchSingleTop = true; restoreState = true
+                                }
+                            }
+                        }
+                    }
                     // Activation navigation temporarily removed
                 )
             }

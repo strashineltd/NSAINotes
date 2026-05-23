@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Psychology
@@ -136,6 +137,7 @@ fun AIHomeScreen(
     onNavigateToModelSettings: () -> Unit,
     onNavigateToMCPSkill: () -> Unit = {},
     onNavigateToActivation: () -> Unit = {},
+    onExitAI: () -> Unit = {},
     viewModel: AIHomeViewModel = hiltViewModel()
 ) {
     val tokens = LocalAnimationConfig.current
@@ -401,6 +403,19 @@ fun AIHomeScreen(
 
             // Input bar
             val isImageMode = uiState.currentMode == AIMode.IMAGE
+            // Exit AI button
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                IconButton(onClick = onExitAI) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = "退出 AI 模式",
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                }
+            }
             InputBar(
                 text = if (isImageMode) uiState.imagePrompt else uiState.inputText,
                 isLoading = uiState.isLoading,
