@@ -1,3 +1,0 @@
-# Baseline Profile for NSAINotes
-# Placeholder for Macrobenchmark results
-
