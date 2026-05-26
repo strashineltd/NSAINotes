@@ -95,7 +95,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.delay
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -629,7 +629,7 @@ private fun ChatView(
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-            items(messages, key = { it.timestamp }) { msg ->
+            items(messages, key = { it.timestamp }, contentType = { it.role }) { msg ->
             val lastAiMsg = messages.lastOrNull { it.role == ChatMessage.Role.ASSISTANT }
             Box(Modifier.animateItem()) {
                 ChatBubble(msg, isLastAIMessage = msg == lastAiMsg, onUrlClick,
@@ -693,14 +693,22 @@ private fun ChatBubble(message: ChatMessage, isLastAIMessage: Boolean = false, o
     val shape = if (isUser) RoundedCornerShape(16.dp, 4.dp, 16.dp, 16.dp)
     else RoundedCornerShape(4.dp, 16.dp, 16.dp, 16.dp)
 
-    // Typewriter effect for AI messages — only for the last AI message
+    // Typewriter effect for AI messages — frame-synced for smooth rendering
     val initialChars = if (isUser || !isLastAIMessage) message.content.length else 1
     var displayedChars by remember(message.content) { mutableStateOf(initialChars) }
     if (!isUser && isLastAIMessage) {
         LaunchedEffect(message.content) {
-            while (displayedChars < message.content.length) {
-                delay(33L)
-                displayedChars = (displayedChars + 8).coerceAtMost(message.content.length)
+            val targetLength = message.content.length
+            val charsPerSecond = 120
+            var lastFrameTime = 0L
+            while (displayedChars < targetLength) {
+                val frameTime = withFrameNanos { it }
+                if (lastFrameTime > 0) {
+                    val deltaSecs = (frameTime - lastFrameTime) / 1_000_000_000f
+                    val charsToAdd = (deltaSecs * charsPerSecond).toInt().coerceAtLeast(1)
+                    displayedChars = (displayedChars + charsToAdd).coerceAtMost(targetLength)
+                }
+                lastFrameTime = frameTime
             }
         }
     }

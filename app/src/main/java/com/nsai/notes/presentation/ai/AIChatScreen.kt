@@ -69,6 +69,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -87,7 +88,6 @@ import com.nsai.notes.domain.model.AIMode
 import com.nsai.notes.domain.model.ChatMessage
 import com.nsai.notes.domain.model.SearchEngine
 import com.nsai.notes.presentation.theme.LocalAnimationConfig
-import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -128,7 +128,7 @@ fun AIChatScreen(
         if (uiState.messages.isNotEmpty() && !userScrolledUp) {
             val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
             if (lastVisible >= uiState.messages.size - 3) {
-                listState.scrollToItem(uiState.messages.size - 1)
+                listState.animateScrollToItem(uiState.messages.size - 1)
             }
         }
     }
@@ -303,7 +303,11 @@ fun AIChatScreen(
                 contentPadding = PaddingValues(vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(if (immersive) 6.dp else 16.dp)
             ) {
-                items(uiState.messages, key = { it.timestamp }) { message ->
+                items(
+                    uiState.messages,
+                    key = { it.timestamp },
+                    contentType = { it.role }
+                ) { message ->
                     val lastAiMsg = uiState.messages.lastOrNull { it.role == ChatMessage.Role.ASSISTANT }
                     val isLast = message == lastAiMsg
                     Box(Modifier.animateItem()) {
@@ -386,14 +390,22 @@ private fun MessageBubble(message: ChatMessage, immersive: Boolean, isLastAIMess
     else RoundedCornerShape(4.dp, 20.dp, 20.dp, 20.dp)
     val maxW = if (immersive) 380.dp else 320.dp
 
-    // Typewriter effect for AI messages — only for the last AI message, not during scroll
+    // Typewriter effect for AI messages — frame-synced for smooth rendering
     val initialChars = if (isUser || skipTypewriter || !isLastAIMessage) message.content.length else 1
     var displayedChars by remember(message.content) { mutableStateOf(initialChars) }
     if (!isUser && isLastAIMessage && !skipTypewriter) {
         LaunchedEffect(message.content) {
-            while (displayedChars < message.content.length) {
-                delay(33L)
-                displayedChars = (displayedChars + 8).coerceAtMost(message.content.length)
+            val targetLength = message.content.length
+            val charsPerSecond = 120
+            var lastFrameTime = 0L
+            while (displayedChars < targetLength) {
+                val frameTime = withFrameNanos { it }
+                if (lastFrameTime > 0) {
+                    val deltaSecs = (frameTime - lastFrameTime) / 1_000_000_000f
+                    val charsToAdd = (deltaSecs * charsPerSecond).toInt().coerceAtLeast(1)
+                    displayedChars = (displayedChars + charsToAdd).coerceAtMost(targetLength)
+                }
+                lastFrameTime = frameTime
             }
         }
     }
@@ -480,11 +492,12 @@ private fun SystemMessage(message: ChatMessage) {
 // ── Loading Bubble ──
 @Composable
 private fun LoadingBubble(immersive: Boolean) {
-    val tokens = LocalAnimationConfig.current
     val infinite = rememberInfiniteTransition(label = "load")
-    val a1 by infinite.animateFloat(0f, 1f, infiniteRepeatable(tween(tokens.normalDuration * 2), RepeatMode.Restart), label = "l1")
-    val a2 by infinite.animateFloat(0f, 1f, infiniteRepeatable(tween(tokens.normalDuration * 2), RepeatMode.Restart), label = "l2")
-    val a3 by infinite.animateFloat(0f, 1f, infiniteRepeatable(tween(tokens.normalDuration * 2), RepeatMode.Restart), label = "l3")
+    val dotAlpha by infinite.animateFloat(
+        0f, 1f,
+        infiniteRepeatable(tween(1000), RepeatMode.Restart),
+        label = "dotAlpha"
+    )
 
     Row(Modifier.padding(start = if (immersive) 4.dp else 16.dp),
         verticalAlignment = Alignment.CenterVertically) {
@@ -496,10 +509,11 @@ private fun LoadingBubble(immersive: Boolean) {
         Text("AI思考中", style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
         Spacer(Modifier.width(6.dp))
-        listOf(a1, a2, a3).forEachIndexed { i, a ->
-            val s = ((a + i * 0.33f).let { if (it > 1f) it - 1f else it })
+        for (i in 0..2) {
+            val phase = (dotAlpha + i * 0.33f).let { if (it > 1f) it - 1f else it }
+            val alpha = 0.25f + phase * 0.5f
             Box(Modifier.size(5.dp).clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.25f + s * 0.5f)))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = alpha)))
             if (i < 2) Spacer(Modifier.width(3.dp))
         }
     }

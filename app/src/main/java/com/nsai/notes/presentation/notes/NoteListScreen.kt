@@ -332,13 +332,17 @@ private fun NoteCardWithMenu(
     onToggleFavorite: () -> Unit,
     onLongClick: () -> Unit
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
     NoteCard(
         note = note,
         onClick = onClick,
         onToggleFavorite = onToggleFavorite,
         modifier = Modifier.combinedClickable(
             onClick = onClick,
-            onLongClick = onLongClick
-        )
+            onLongClick = onLongClick,
+            interactionSource = interactionSource,
+            indication = null
+        ),
+        interactionSource = interactionSource
     )
 }
