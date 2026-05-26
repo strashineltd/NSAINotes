@@ -61,6 +61,7 @@ import com.nsai.notes.presentation.notes.NoteListScreen
 import com.nsai.notes.presentation.settings.SettingsScreen
 import com.nsai.notes.presentation.tags.TagManageScreen
 import com.nsai.notes.presentation.theme.LocalAnimationConfig
+import com.nsai.notes.presentation.theme.StandardEasing
 
 private val tabRoutes = setOf(Screen.NoteList.route, Screen.Files.route, Screen.AIHome.route)
 
@@ -210,24 +211,24 @@ fun NSAINavGraph(
             enterTransition = {
                 if (isHeroAnimating) fadeIn(tween(0)) else
                 if (targetState.destination.route in tabRoutes && initialState.destination.route in tabRoutes) {
-                    fadeIn(animationSpec = tween(tokens.fastDuration / 2))
+                    fadeIn(animationSpec = tween(tokens.fastDuration / 2, easing = StandardEasing))
                 } else {
-                    fadeIn(animationSpec = tween(tokens.normalDuration)) +
+                    fadeIn(animationSpec = tween(tokens.normalDuration, easing = StandardEasing)) +
                         slideIntoContainer(
                             towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                            animationSpec = tween(tokens.normalDuration)
+                            animationSpec = tween(tokens.normalDuration, easing = StandardEasing)
                         )
                 }
             },
             exitTransition = {
                 if (isHeroAnimating) fadeOut(tween(0)) else
                 if (targetState.destination.route in tabRoutes && initialState.destination.route in tabRoutes) {
-                    fadeOut(animationSpec = tween(tokens.fastDuration / 2))
+                    fadeOut(animationSpec = tween(tokens.fastDuration / 2, easing = StandardEasing))
                 } else {
-                    fadeOut(animationSpec = tween(tokens.fastDuration)) +
+                    fadeOut(animationSpec = tween(tokens.fastDuration, easing = StandardEasing)) +
                         slideOutOfContainer(
                             towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                            animationSpec = tween(tokens.fastDuration)
+                            animationSpec = tween(tokens.fastDuration, easing = StandardEasing)
                         )
                 }
             },
@@ -239,14 +240,14 @@ fun NSAINavGraph(
                         dampingRatio = tokens.springDamping,
                         stiffness = tokens.springStiffness
                     )
-                ) + fadeIn(animationSpec = tween(tokens.normalDuration))
+                ) + fadeIn(animationSpec = tween(tokens.normalDuration, easing = StandardEasing))
             },
             popExitTransition = {
                 if (isHeroAnimating) fadeOut(tween(0)) else
                 slideOutOfContainer(
                     towards = AnimatedContentTransitionScope.SlideDirection.End,
-                    animationSpec = tween(tokens.normalDuration)
-                ) + fadeOut(animationSpec = tween(tokens.fastDuration))
+                    animationSpec = tween(tokens.normalDuration, easing = StandardEasing)
+                ) + fadeOut(animationSpec = tween(tokens.fastDuration, easing = StandardEasing))
             }
         ) {
             composable(Screen.NoteList.route) {
@@ -265,10 +266,10 @@ fun NSAINavGraph(
 
             composable(
                 route = Screen.AIModelSettings.route,
-                enterTransition = { fadeIn(animationSpec = tween(tokens.fastDuration)) },
-                exitTransition = { fadeOut(animationSpec = tween(tokens.fastDuration)) },
-                popEnterTransition = { fadeIn(animationSpec = tween(tokens.fastDuration)) },
-                popExitTransition = { fadeOut(animationSpec = tween(tokens.fastDuration)) }
+                enterTransition = { fadeIn(animationSpec = tween(tokens.fastDuration, easing = StandardEasing)) },
+                exitTransition = { fadeOut(animationSpec = tween(tokens.fastDuration, easing = StandardEasing)) },
+                popEnterTransition = { fadeIn(animationSpec = tween(tokens.fastDuration, easing = StandardEasing)) },
+                popExitTransition = { fadeOut(animationSpec = tween(tokens.fastDuration, easing = StandardEasing)) }
             ) {
                 AIModelSettingsScreen(
                     onNavigateBack = { navController.popBackStack() }
@@ -279,19 +280,19 @@ fun NSAINavGraph(
                 route = Screen.AIHome.route,
                 enterTransition = {
                     if (isHeroAnimating) fadeIn(tween(0))
-                    else fadeIn(animationSpec = tween(tokens.normalDuration))
+                    else fadeIn(animationSpec = tween(tokens.normalDuration, easing = StandardEasing))
                 },
                 exitTransition = {
                     if (isHeroAnimating) fadeOut(tween(0))
-                    else fadeOut(animationSpec = tween(tokens.normalDuration))
+                    else fadeOut(animationSpec = tween(tokens.normalDuration, easing = StandardEasing))
                 },
                 popEnterTransition = {
                     if (isHeroAnimating) fadeIn(tween(0))
-                    else fadeIn(animationSpec = tween(tokens.normalDuration))
+                    else fadeIn(animationSpec = tween(tokens.normalDuration, easing = StandardEasing))
                 },
                 popExitTransition = {
                     if (isHeroAnimating) fadeOut(tween(0))
-                    else fadeOut(animationSpec = tween(tokens.normalDuration))
+                    else fadeOut(animationSpec = tween(tokens.normalDuration, easing = StandardEasing))
                 }
             ) {
                 AIHomeScreen(
@@ -327,16 +328,16 @@ fun NSAINavGraph(
                             stiffness = tokens.springStiffness
                         ),
                         initialScale = 0.3f
-                    ) + fadeIn(animationSpec = tween(tokens.fastDuration))
+                    ) + fadeIn(animationSpec = tween(tokens.fastDuration, easing = StandardEasing))
                 },
                 exitTransition = {
                     scaleOut(
-                        animationSpec = tween(tokens.fastDuration),
+                        animationSpec = tween(tokens.fastDuration, easing = StandardEasing),
                         targetScale = 0.3f
-                    ) + fadeOut(animationSpec = tween(tokens.fastDuration))
+                    ) + fadeOut(animationSpec = tween(tokens.fastDuration, easing = StandardEasing))
                 },
                 popEnterTransition = {
-                    fadeIn(animationSpec = tween(tokens.normalDuration))
+                    fadeIn(animationSpec = tween(tokens.normalDuration, easing = StandardEasing))
                 },
                 popExitTransition = {
                     scaleOut(
@@ -345,7 +346,7 @@ fun NSAINavGraph(
                             stiffness = tokens.springStiffness
                         ),
                         targetScale = 0.8f
-                    ) + fadeOut(animationSpec = tween(tokens.fastDuration))
+                    ) + fadeOut(animationSpec = tween(tokens.fastDuration, easing = StandardEasing))
                 }
             ) { entry ->
                 val noteId = entry.arguments?.getLong("noteId") ?: -1L
@@ -368,16 +369,16 @@ fun NSAINavGraph(
                             stiffness = tokens.springStiffness
                         ),
                         initialScale = 0.3f
-                    ) + fadeIn(animationSpec = tween(tokens.fastDuration))
+                    ) + fadeIn(animationSpec = tween(tokens.fastDuration, easing = StandardEasing))
                 },
                 exitTransition = {
                     scaleOut(
-                        animationSpec = tween(tokens.fastDuration),
+                        animationSpec = tween(tokens.fastDuration, easing = StandardEasing),
                         targetScale = 0.3f
-                    ) + fadeOut(animationSpec = tween(tokens.fastDuration))
+                    ) + fadeOut(animationSpec = tween(tokens.fastDuration, easing = StandardEasing))
                 },
                 popEnterTransition = {
-                    fadeIn(animationSpec = tween(tokens.normalDuration))
+                    fadeIn(animationSpec = tween(tokens.normalDuration, easing = StandardEasing))
                 },
                 popExitTransition = {
                     scaleOut(
@@ -386,7 +387,7 @@ fun NSAINavGraph(
                             stiffness = tokens.springStiffness
                         ),
                         targetScale = 0.8f
-                    ) + fadeOut(animationSpec = tween(tokens.fastDuration))
+                    ) + fadeOut(animationSpec = tween(tokens.fastDuration, easing = StandardEasing))
                 }
             ) { entry ->
                 val noteId = entry.arguments?.getLong("noteId") ?: return@composable
@@ -401,16 +402,16 @@ fun NSAINavGraph(
                 enterTransition = {
                     slideIntoContainer(
                         towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                        animationSpec = tween(tokens.normalDuration)
-                    ) + fadeIn(animationSpec = tween(tokens.normalDuration))
+                        animationSpec = tween(tokens.normalDuration, easing = StandardEasing)
+                    ) + fadeIn(animationSpec = tween(tokens.normalDuration, easing = StandardEasing))
                 },
-                exitTransition = { fadeOut(animationSpec = tween(tokens.fastDuration)) },
-                popEnterTransition = { fadeIn(animationSpec = tween(tokens.normalDuration)) },
+                exitTransition = { fadeOut(animationSpec = tween(tokens.fastDuration, easing = StandardEasing)) },
+                popEnterTransition = { fadeIn(animationSpec = tween(tokens.normalDuration, easing = StandardEasing)) },
                 popExitTransition = {
                     slideOutOfContainer(
                         towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                        animationSpec = tween(tokens.normalDuration)
-                    ) + fadeOut(animationSpec = tween(tokens.fastDuration))
+                        animationSpec = tween(tokens.normalDuration, easing = StandardEasing)
+                    ) + fadeOut(animationSpec = tween(tokens.fastDuration, easing = StandardEasing))
                 }
             ) {
                 TagManageScreen(
@@ -423,16 +424,16 @@ fun NSAINavGraph(
                 enterTransition = {
                     slideIntoContainer(
                         towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                        animationSpec = tween(tokens.normalDuration)
-                    ) + fadeIn(animationSpec = tween(tokens.normalDuration))
+                        animationSpec = tween(tokens.normalDuration, easing = StandardEasing)
+                    ) + fadeIn(animationSpec = tween(tokens.normalDuration, easing = StandardEasing))
                 },
-                exitTransition = { fadeOut(animationSpec = tween(tokens.fastDuration)) },
-                popEnterTransition = { fadeIn(animationSpec = tween(tokens.normalDuration)) },
+                exitTransition = { fadeOut(animationSpec = tween(tokens.fastDuration, easing = StandardEasing)) },
+                popEnterTransition = { fadeIn(animationSpec = tween(tokens.normalDuration, easing = StandardEasing)) },
                 popExitTransition = {
                     slideOutOfContainer(
                         towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                        animationSpec = tween(tokens.normalDuration)
-                    ) + fadeOut(animationSpec = tween(tokens.fastDuration))
+                        animationSpec = tween(tokens.normalDuration, easing = StandardEasing)
+                    ) + fadeOut(animationSpec = tween(tokens.fastDuration, easing = StandardEasing))
                 }
             ) {
                 SettingsScreen(
@@ -446,16 +447,16 @@ fun NSAINavGraph(
                 enterTransition = {
                     slideIntoContainer(
                         towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                        animationSpec = tween(tokens.normalDuration)
-                    ) + fadeIn(animationSpec = tween(tokens.normalDuration))
+                        animationSpec = tween(tokens.normalDuration, easing = StandardEasing)
+                    ) + fadeIn(animationSpec = tween(tokens.normalDuration, easing = StandardEasing))
                 },
-                exitTransition = { fadeOut(animationSpec = tween(tokens.fastDuration)) },
-                popEnterTransition = { fadeIn(animationSpec = tween(tokens.normalDuration)) },
+                exitTransition = { fadeOut(animationSpec = tween(tokens.fastDuration, easing = StandardEasing)) },
+                popEnterTransition = { fadeIn(animationSpec = tween(tokens.normalDuration, easing = StandardEasing)) },
                 popExitTransition = {
                     slideOutOfContainer(
                         towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                        animationSpec = tween(tokens.normalDuration)
-                    ) + fadeOut(animationSpec = tween(tokens.fastDuration))
+                        animationSpec = tween(tokens.normalDuration, easing = StandardEasing)
+                    ) + fadeOut(animationSpec = tween(tokens.fastDuration, easing = StandardEasing))
                 }
             ) {
                 MCPSkillManageScreen(
