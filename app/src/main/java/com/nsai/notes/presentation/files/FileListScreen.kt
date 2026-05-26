@@ -2,11 +2,14 @@ package com.nsai.notes.presentation.files
 
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -25,6 +28,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -143,6 +147,15 @@ fun FileListScreen(viewModel: FileListViewModel = hiltViewModel()) {
 private fun FileRow(file: AppFileItem, onDelete: () -> Unit, onRename: () -> Unit, onClick: () -> Unit = {}, onTogglePrivate: () -> Unit = {}, isPrivateUnlocked: Boolean = false) {
     val isPrivate = file.path.contains("/.private/")
     val dismissState = rememberSwipeToDismissBoxState(confirmValueChange = { when (it) { SwipeToDismissBoxValue.EndToStart -> onDelete(); SwipeToDismissBoxValue.StartToEnd -> onRename(); else -> {} }; false })
+    val tokens = LocalAnimationConfig.current
+    val pressInteractionSource = remember { MutableInteractionSource() }
+    val isPressed by pressInteractionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
+        animationSpec = tween(tokens.fastDuration),
+        label = "filePress"
+    )
+
     SwipeToDismissBox(state = dismissState, enableDismissFromStartToEnd = true, enableDismissFromEndToStart = true,
         backgroundContent = {
             Row(Modifier.fillMaxSize().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -151,7 +164,18 @@ private fun FileRow(file: AppFileItem, onDelete: () -> Unit, onRename: () -> Uni
             }
         }
     ) {
-        Card(modifier = Modifier.fillMaxWidth().clickable { onClick() }, shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = if (file.isDirectory) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .scale(pressScale)
+                .clickable(
+                    onClick = onClick,
+                    interactionSource = pressInteractionSource,
+                    indication = null
+                ),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = if (file.isDirectory) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
+        ) {
             Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 val icon = fileIcon(file)
                 Box(Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(if (file.isDirectory) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) { Icon(icon, null, modifier = Modifier.size(22.dp), tint = if (file.isDirectory) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }

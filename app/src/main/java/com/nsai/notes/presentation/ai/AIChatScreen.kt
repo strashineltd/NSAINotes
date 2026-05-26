@@ -310,7 +310,11 @@ fun AIChatScreen(
                 ) { message ->
                     val lastAiMsg = uiState.messages.lastOrNull { it.role == ChatMessage.Role.ASSISTANT }
                     val isLast = message == lastAiMsg
-                    Box(Modifier.animateItem()) {
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn(tween(tokens.fastDuration)) +
+                            slideInVertically(tween(tokens.fastDuration)) { it / 4 },
+                    ) {
                         when (message.role) {
                             ChatMessage.Role.SYSTEM -> SystemMessage(message)
                             else -> MessageBubble(message, immersive, isLastAIMessage = isLast, skipTypewriter = userScrolledUp, onUrlClick = { url ->

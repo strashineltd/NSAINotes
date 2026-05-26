@@ -624,6 +624,7 @@ private fun ChatView(
     onSaveAsNote: (String) -> Unit = {},
     onRetry: () -> Unit = {}
 ) {
+    val tokens = LocalAnimationConfig.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(), state = listState,
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
@@ -631,7 +632,11 @@ private fun ChatView(
     ) {
             items(messages, key = { it.timestamp }, contentType = { it.role }) { msg ->
             val lastAiMsg = messages.lastOrNull { it.role == ChatMessage.Role.ASSISTANT }
-            Box(Modifier.animateItem()) {
+            AnimatedVisibility(
+                visible = true,
+                enter = fadeIn(tween(tokens.normalDuration)) +
+                    slideInVertically(tween(tokens.normalDuration)) { it / 4 },
+            ) {
                 ChatBubble(msg, isLastAIMessage = msg == lastAiMsg, onUrlClick,
                 onSaveAsNote = { content -> onSaveAsNote(content) },
                 onRetry = { onRetry() })
