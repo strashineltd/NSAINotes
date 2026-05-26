@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>NSAI Browser</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:var(--bg);color:var(--tx);min-height:100vh;min-height:100dvh;
+  display:flex;flex-direction:column;align-items:center;padding:16px;
+  overflow-y:auto;-webkit-tap-highlight-color:transparent
+}
+:root{--bg:#f5f5f7;--tx:#1d1d1f;--srf:#fff;--brd:#e5e5ea;--p:#3b82f6;--t2:#86868b;--ch:#e8e8ed;--sh:0 2px 12px rgba(0,0,0,.06)}
+@media(prefers-color-scheme:dark){
+  :root{--bg:#1c1c1e;--tx:#f5f5f7;--srf:#2c2c2e;--brd:#3a3a3c;--p:#60a5fa;--t2:#98989d;--ch:#3a3a3c;--sh:0 2px 12px rgba(0,0,0,.3)}
+}
+.logo{margin-top:80px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.logo-icon{width:56px;height:56px;border-radius:18px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff;font-weight:700}
+.logo h1{font-size:22px;font-weight:700;color:var(--tx);letter-spacing:-.5px}
+.logo p{font-size:12px;color:var(--t2)}
+.search-wrap{width:100%;max-width:540px;margin-top:36px}
+.search-box{display:flex;align-items:center;gap:0;background:var(--srf);border:2px solid var(--brd);border-radius:20px;padding:5px;box-shadow:var(--sh)}
+.search-box input{flex:1;border:none;outline:none;font-size:16px;padding:12px 16px;background:transparent;color:var(--tx)}
+.search-box input::placeholder{color:var(--t2)}
+.search-btn{width:46px;height:46px;border:none;border-radius:16px;flex-shrink:0;background:var(--p);color:#fff;cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center}
+.search-btn:active{opacity:.85}
+.search-btn.loading{pointer-events:none}
+.search-btn.loading svg{opacity:0;transform:scale(.5);transition:opacity .2s,transform .2s}
+.search-btn .spinner{position:absolute;width:20px;height:20px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;opacity:0;transform:scale(.5);transition:opacity .2s,transform .2s}
+.search-btn.loading .spinner{opacity:1;transform:scale(1)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.engine-row{display:flex;gap:8px;margin-top:16px;justify-content:center}
+.engine-chip{padding:8px 18px;border-radius:20px;border:none;font-size:13px;font-weight:500;cursor:pointer;background:var(--ch);color:var(--t2);transition:all .15s}
+.engine-chip.active{background:var(--p);color:#fff}
+.engine-chip:active{transform:scale(.96)}
+.custom-row{display:none;margin-top:12px;width:100%;max-width:400px}
+.custom-row input{width:100%;padding:10px 14px;border:1.5px solid var(--brd);border-radius:12px;font-size:13px;background:var(--srf);color:var(--tx);outline:none}
+.custom-row .hint{font-size:11px;color:var(--t2);margin-top:5px}
+.shortcuts{display:flex;gap:12px;margin-top:40px;justify-content:center}
+.shortcut{display:flex;flex-direction:column;align-items:center;gap:7px;cursor:pointer;width:66px;transition:transform .12s}
+.shortcut:active{transform:scale(.9)}
+.shortcut .sc-icon{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;font-weight:600}
+.shortcut .sc-label{font-size:11px;color:var(--tx)}
+.hist-wrap{width:100%;max-width:540px;margin-top:36px}
+.hist-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.hist-head span{font-size:13px;font-weight:600;color:var(--t2)}
+.hist-head button{background:none;border:none;font-size:12px;color:var(--p);cursor:pointer}
+.hist-chips{display:flex;flex-wrap:wrap;gap:6px}
+.hist-chip{padding:7px 16px;border-radius:16px;font-size:12px;cursor:pointer;background:var(--ch);color:var(--t2);transition:background .15s}
+.hist-chip:active{background:var(--p);color:#fff}
+</style>
+</head>
+<body>
+
+<div class="logo">
+  <div class="logo-icon">N</div>
+  <h1>NSAI 浏览器</h1>
+  <p>安全 · 快速 · 智能</p>
+</div>
+
+<div class="search-wrap">
+  <div class="search-box">
+    <input id="q" type="text" placeholder="搜索或输入网址..." autocomplete="off">
+    <button class="search-btn" id="btn" type="button">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      <div class="spinner"></div>
+    </button>
+  </div>
+  <div class="engine-row" id="engines"></div>
+  <div class="custom-row" id="customRow">
+    <input id="customUrlInput" type="text" placeholder="自定义搜索 URL（{query}=搜索词）">
+    <div class="hint">例：https://searx.example.com/search?q={query}</div>
+  </div>
+</div>
+
+<div class="shortcuts" id="shortcuts"></div>
+
+<div class="hist-wrap" id="histArea" style="display:none">
+  <div class="hist-head"><span>最近搜索</span><button id="clearHist">清空全部</button></div>
+  <div class="hist-chips" id="histList"></div>
+</div>
+
+<script>
+var SE={GOOGLE:'https://www.google.com/search?q=',BAIDU:'https://www.baidu.com/s?wd=',BING:'https://www.bing.com/search?q='};
+var ENGINES=[
+  {id:'GOOGLE',name:'Google',c:'#4285f4'},
+  {id:'BAIDU',name:'百度',c:'#2932e1'},
+  {id:'BING',name:'必应',c:'#008373'},
+  {id:'CUSTOM',name:'自定义',c:'#6b7280'}
+];
+var TILES=[
+  {l:'GitHub',u:'https://github.com',c:'#24292e'},
+  {l:'Wikipedia',u:'https://wikipedia.org',c:'#444'},
+  {l:'知乎',u:'https://zhihu.com',c:'#06f'},
+  {l:'B站',u:'https://bilibili.com',c:'#fb7299'},
+  {l:'翻译',u:'https://translate.google.com',c:'#4285f4'}
+];
+var engine='GOOGLE',customUrl='';
+var history=JSON.parse(localStorage.getItem('nsai_hist')||'[]');
+var loading=false;
+
+function nav(url){
+  // Primary: use NativeBridge (bypasses origin restrictions)
+  if(window.NativeBridge){
+    NativeBridge.navigate(url);
+  } else {
+    // Fallback: direct location change (works if page has https origin)
+    window.location.href=url;
+  }
+}
+
+function doSearch(){
+  if(loading)return;
+  var q=document.getElementById('q').value.trim();if(!q)return;
+  loading=true;document.getElementById('btn').classList.add('loading');
+  addHistory(q);
+  if(/^https?:\/\//.test(q)||/^[\w-]+\.[a-z]{2,}(\/|$)/.test(q)){
+    nav(/^https?:\/\//.test(q)?q:'https://'+q);
+  }else{
+    if(engine==='CUSTOM'){
+      nav(customUrl.replace('{query}',encodeURIComponent(q)));
+    }else{
+      nav((SE[engine]||SE.GOOGLE)+encodeURIComponent(q));
+    }
+  }
+}
+
+function addHistory(q){
+  history=history.filter(function(h){return h!==q});history.unshift(q);
+  if(history.length>5)history=history.slice(0,5);
+  localStorage.setItem('nsai_hist',JSON.stringify(history));renderHistory();
+}
+function clearHistory(){history=[];localStorage.setItem('nsai_hist','[]');renderHistory();}
+function renderHistory(){
+  var w=document.getElementById('histArea'),l=document.getElementById('histList');
+  if(!history.length){w.style.display='none';return}
+  w.style.display='block';l.innerHTML='';
+  history.forEach(function(h){
+    var s=document.createElement('span');s.className='hist-chip';s.textContent=h;
+    s.onclick=function(){document.getElementById('q').value=h;doSearch();};
+    l.appendChild(s);
+  });
+}
+
+function renderShortcuts(){
+  var g=document.getElementById('shortcuts');g.innerHTML='';
+  TILES.forEach(function(t){
+    var d=document.createElement('div');d.className='shortcut';
+    d.onclick=function(){nav(t.u);};
+    d.innerHTML='<div class="sc-icon" style="background:'+t.c+'">'+t.l.charAt(0)+'</div><span class="sc-label">'+t.l+'</span>';
+    g.appendChild(d);
+  });
+}
+
+function renderEngines(){
+  var g=document.getElementById('engines');g.innerHTML='';
+  ENGINES.forEach(function(en){
+    var b=document.createElement('button');b.className='engine-chip';b.textContent=en.name;b.dataset.e=en.id;
+    if(en.id===engine)b.classList.add('active');
+    b.onclick=function(){
+      engine=en.id;updateCustomUI();
+      document.querySelectorAll('.engine-chip').forEach(function(x){x.classList.toggle('active',x.dataset.e===engine);});
+      localStorage.setItem('nsai_eng',engine);
+    };
+    g.appendChild(b);
+  });
+}
+function updateCustomUI(){
+  document.getElementById('customRow').style.display=engine==='CUSTOM'?'block':'none';
+}
+document.getElementById('customUrlInput').oninput=function(){customUrl=this.value;localStorage.setItem('nsai_curl',customUrl);};
+
+document.getElementById('btn').onclick=function(e){e.preventDefault();doSearch();};
+document.getElementById('q').onkeydown=function(e){if(e.key==='Enter')doSearch();};
+document.getElementById('clearHist').onclick=clearHistory;
+
+var saved=localStorage.getItem('nsai_eng');if(saved)engine=saved;
+customUrl=localStorage.getItem('nsai_curl')||'';
+renderEngines();updateCustomUI();renderShortcuts();renderHistory();
+
+// Called by native toolbar
+function addBookmark(t,u){
+  var bm=JSON.parse(localStorage.getItem('nsai_bm')||'[]');
+  bm=bm.filter(function(b){return b.u!==u});bm.unshift({t:t,u:u});
+  if(bm.length>20)bm=bm.slice(0,20);localStorage.setItem('nsai_bm',JSON.stringify(bm));
+}
+function setEngine(e,c){engine=e;customUrl=c||'';updateCustomUI();
+  document.querySelectorAll('.engine-chip').forEach(function(x){x.classList.toggle('active',x.dataset.e===engine);});
+}
+</script>
+</body>
+</html>
