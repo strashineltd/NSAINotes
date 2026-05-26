@@ -88,6 +88,7 @@ import com.nsai.notes.domain.model.AIMode
 import com.nsai.notes.domain.model.ChatMessage
 import com.nsai.notes.domain.model.SearchEngine
 import com.nsai.notes.presentation.theme.LocalAnimationConfig
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
