@@ -1,8 +1,5 @@
 package com.nsai.notes.presentation.ai
 
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
@@ -21,7 +18,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.nsai.notes.domain.model.AIMode
 import com.nsai.notes.presentation.ai.components.AIContent
@@ -30,7 +26,6 @@ import com.nsai.notes.presentation.ai.components.CollapsibleTopBar
 import com.nsai.notes.presentation.ai.components.MoreModesSheet
 import com.nsai.notes.presentation.ai.components.WorkspaceBar
 import com.nsai.notes.presentation.ai.components.WorkspaceTab
-import com.nsai.notes.presentation.theme.LocalAnimationConfig
 
 /**
  * AI主界面 - 精简状态管理层
@@ -43,7 +38,6 @@ fun AIHomeScreen(
     onNavigateToModelSettings: () -> Unit,
     onNavigateToMCPSkill: () -> Unit = {},
     onNavigateToActivation: () -> Unit = {},
-    onExitAI: () -> Unit = {},
     viewModel: AIHomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -104,6 +98,10 @@ fun AIHomeScreen(
                 onHistoryClick = { viewModel.onEvent(AIHomeEvent.ToggleHistory) },
                 onSettingsClick = onNavigateToModelSettings,
                 onMCPSkillClick = onNavigateToMCPSkill,
+                onBrowserClick = {
+                    browserUrl = "https://www.google.com"
+                    showBrowser = true
+                },
                 scrollBehavior = scrollBehavior
             )
         },
@@ -166,8 +164,7 @@ fun AIHomeScreen(
                 isWebSearchEnabled = uiState.isWebSearchMode,
                 onToggleWebSearch = { viewModel.onEvent(AIHomeEvent.ToggleWebSearch) },
                 contextLabel = contextLabel(uiState),
-                onMoreClick = { showMoreSheet = true },
-                onExitAI = onExitAI
+                onMoreClick = { showMoreSheet = true }
             )
         }
     }

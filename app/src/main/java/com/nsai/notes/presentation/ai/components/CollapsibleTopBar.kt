@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.DropdownMenu
@@ -46,6 +47,7 @@ fun CollapsibleTopBar(
     onHistoryClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onMCPSkillClick: () -> Unit,
+    onBrowserClick: () -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior
 ) {
     var showModelMenu by remember { mutableStateOf(false) }
@@ -145,6 +147,11 @@ fun CollapsibleTopBar(
             }
         },
         actions = {
+            // 浏览器按钮
+            IconButton(onClick = onBrowserClick) {
+                Icon(Icons.Default.TravelExplore, "浏览器")
+            }
+
             // 历史按钮
             IconButton(onClick = onHistoryClick) {
                 Icon(Icons.Default.History, "历史对话")

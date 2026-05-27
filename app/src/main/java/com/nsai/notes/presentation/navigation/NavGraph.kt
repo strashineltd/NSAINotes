@@ -38,8 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
+
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -50,7 +49,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.nsai.notes.performance.FluidityManager
 import com.nsai.notes.performance.InputThrottler
-import com.nsai.notes.performance.AnimationBudget
 import com.nsai.notes.presentation.ai.AIChatScreen
 import com.nsai.notes.presentation.ai.AIHomeScreen
 import com.nsai.notes.presentation.ai.AIModelSettingsScreen
@@ -84,17 +82,10 @@ fun NSAINavGraph(
     // Double-back to exit — only on root tab screens
     var backPressTime by remember { mutableLongStateOf(0L) }
     val context = androidx.compose.ui.platform.LocalContext.current
-
-    // Hero transition state
-    var heroState by remember { mutableStateOf<HeroState>(HeroState.Idle) }
-    var aiIconBounds by remember { mutableStateOf(HeroBounds()) }
     var previousTab by remember { mutableStateOf(Screen.NoteList.route) }
     val fluidityConfig by fluidityManager.config.collectAsState()
-    val isHeroAnimating = heroState !is HeroState.Idle
-    val heroBudgetOk = fluidityConfig.animationBudget != AnimationBudget.MINIMAL
-    val effectiveShowBottomBar = showBottomBar || isHeroAnimating
 
-    val backHandlerEnabled = showBottomBar && !isHeroAnimating
+    val backHandlerEnabled = showBottomBar
     BackHandler(enabled = backHandlerEnabled) {
         // On AI tab: back returns to previous tab
         if (currentRoute == Screen.AIHome.route) {
@@ -135,7 +126,7 @@ fun NSAINavGraph(
 
     Scaffold(
         bottomBar = {
-            if (effectiveShowBottomBar) {
+            if (showBottomBar) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface
                 ) {
@@ -164,18 +155,7 @@ fun NSAINavGraph(
                                 }
                             },
                             icon = {
-                                Box(
-                                    modifier = if (item == BottomNavItem.AI) {
-                                        Modifier.onGloballyPositioned { coords ->
-                                            val pos = coords.positionInWindow()
-                                            val size = coords.size
-                                            val new = HeroBounds(pos.x, pos.y, size.width.toFloat(), size.height.toFloat())
-                                            if (new != aiIconBounds) aiIconBounds = new
-                                        }
-                                    } else Modifier
-                                ) {
-                                    Icon(icon, contentDescription = item.label)
-                                }
+                                Icon(icon, contentDescription = item.label)
                             },
                             label = { Text(item.label) },
                             colors = NavigationBarItemDefaults.colors(
@@ -193,10 +173,10 @@ fun NSAINavGraph(
             navController = navController,
             startDestination = Screen.NoteList.route,
             modifier = Modifier.padding(innerPadding),
+            // 极简过渡动画：tab切换50ms fade，其他页面150ms fade+slide
             enterTransition = {
-                if (isHeroAnimating) fadeIn(tween(0)) else
                 if (targetState.destination.route in tabRoutes && initialState.destination.route in tabRoutes) {
-                    fadeIn(animationSpec = tween(tokens.fastDuration / 2, easing = StandardEasing))
+                    fadeIn(animationSpec = tween(50))
                 } else {
                     fadeIn(animationSpec = tween(tokens.normalDuration, easing = StandardEasing)) +
                         slideIntoContainer(
@@ -206,9 +186,8 @@ fun NSAINavGraph(
                 }
             },
             exitTransition = {
-                if (isHeroAnimating) fadeOut(tween(0)) else
                 if (targetState.destination.route in tabRoutes && initialState.destination.route in tabRoutes) {
-                    fadeOut(animationSpec = tween(tokens.fastDuration / 2, easing = StandardEasing))
+                    fadeOut(animationSpec = tween(50))
                 } else {
                     fadeOut(animationSpec = tween(tokens.fastDuration, easing = StandardEasing)) +
                         slideOutOfContainer(
@@ -218,17 +197,12 @@ fun NSAINavGraph(
                 }
             },
             popEnterTransition = {
-                if (isHeroAnimating) fadeIn(tween(0)) else
                 slideIntoContainer(
                     towards = AnimatedContentTransitionScope.SlideDirection.End,
-                    animationSpec = spring(
-                        dampingRatio = tokens.springDamping,
-                        stiffness = tokens.springStiffness
-                    )
-                ) + fadeIn(animationSpec = tween(tokens.normalDuration, easing = StandardEasing))
+                    animationSpec = tween(tokens.normalDuration, easing = StandardEasing)
+                ) + fadeIn(animationSpec = tween(tokens.fastDuration, easing = StandardEasing))
             },
             popExitTransition = {
-                if (isHeroAnimating) fadeOut(tween(0)) else
                 slideOutOfContainer(
                     towards = AnimatedContentTransitionScope.SlideDirection.End,
                     animationSpec = tween(tokens.normalDuration, easing = StandardEasing)
@@ -263,22 +237,11 @@ fun NSAINavGraph(
 
             composable(
                 route = Screen.AIHome.route,
-                enterTransition = {
-                    if (isHeroAnimating) fadeIn(tween(0))
-                    else fadeIn(animationSpec = tween(tokens.normalDuration, easing = StandardEasing))
-                },
-                exitTransition = {
-                    if (isHeroAnimating) fadeOut(tween(0))
-                    else fadeOut(animationSpec = tween(tokens.normalDuration, easing = StandardEasing))
-                },
-                popEnterTransition = {
-                    if (isHeroAnimating) fadeIn(tween(0))
-                    else fadeIn(animationSpec = tween(tokens.normalDuration, easing = StandardEasing))
-                },
-                popExitTransition = {
-                    if (isHeroAnimating) fadeOut(tween(0))
-                    else fadeOut(animationSpec = tween(tokens.normalDuration, easing = StandardEasing))
-                }
+                // AI tab 极简过渡：50ms fade
+                enterTransition = { fadeIn(tween(50)) },
+                exitTransition = { fadeOut(tween(50)) },
+                popEnterTransition = { fadeIn(tween(50)) },
+                popExitTransition = { fadeOut(tween(50)) }
             ) {
                 AIHomeScreen(
                     onNavigateToNoteChat = { noteId ->
@@ -289,13 +252,6 @@ fun NSAINavGraph(
                     },
                     onNavigateToMCPSkill = {
                         navController.navigate(Screen.MCPSkill.route)
-                    },
-                    onExitAI = {
-                        navController.navigate(previousTab) {
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
                     }
                 )
             }
@@ -448,14 +404,5 @@ fun NSAINavGraph(
         }
     }
 
-    if (heroState !is HeroState.Idle) {
-        HeroOverlay(
-            state = heroState,
-            screenWidthPx = screenWidthPx,
-            screenHeightPx = screenHeightPx,
-            animationSpeedMultiplier = fluidityConfig.animationSpeedMultiplier,
-            onAnimationEnd = { heroState = HeroState.Idle }
-        )
-    }
     }
 }

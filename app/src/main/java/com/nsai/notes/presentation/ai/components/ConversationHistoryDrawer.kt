@@ -40,7 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.nsai.notes.domain.model.Conversation
-import com.nsai.notes.presentation.theme.LocalAnimationConfig
+import com.nsai.notes.presentation.theme.StandardEasing
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -58,14 +58,12 @@ fun ConversationHistoryDrawer(
     onNew: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val tokens = LocalAnimationConfig.current
-
     Box(modifier = Modifier.fillMaxSize()) {
         // 遮罩层
         AnimatedVisibility(
             visible = visible,
-            enter = fadeIn(tween(tokens.normalDuration)),
-            exit = fadeOut(tween(tokens.fastDuration))
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(100))
         ) {
             Box(
                 modifier = Modifier
@@ -78,8 +76,8 @@ fun ConversationHistoryDrawer(
         // 抽屉内容
         AnimatedVisibility(
             visible = visible,
-            enter = slideInHorizontally(tween(tokens.normalDuration)) { -it },
-            exit = slideOutHorizontally(tween(tokens.fastDuration)) { -it }
+            enter = slideInHorizontally(tween(200, easing = StandardEasing)) { -it },
+            exit = slideOutHorizontally(tween(150, easing = StandardEasing)) { -it }
         ) {
             Column(
                 modifier = Modifier
