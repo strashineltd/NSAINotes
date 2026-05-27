@@ -77,7 +77,8 @@ fun NSAINavGraph(
 
     val showBottomBar = currentRoute in listOf(
         Screen.NoteList.route,
-        Screen.Files.route
+        Screen.Files.route,
+        Screen.AIHome.route
     )
 
     // Double-back to exit — only on root tab screens
@@ -93,17 +94,18 @@ fun NSAINavGraph(
     val heroBudgetOk = fluidityConfig.animationBudget != AnimationBudget.MINIMAL
     val effectiveShowBottomBar = showBottomBar || isHeroAnimating
 
-    val backHandlerEnabled = (showBottomBar || currentRoute == Screen.AIHome.route) && !isHeroAnimating
+    val backHandlerEnabled = showBottomBar && !isHeroAnimating
     BackHandler(enabled = backHandlerEnabled) {
-        // On AI tab: single back triggers hero exit back to notes
-        if (currentRoute == Screen.AIHome.route && heroBudgetOk) {
-            heroState = HeroState.Exiting(aiIconBounds)
+        // On AI tab: back returns to previous tab
+        if (currentRoute == Screen.AIHome.route) {
             navController.navigate(previousTab) {
                 popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                launchSingleTop = true; restoreState = true
+                launchSingleTop = true
+                restoreState = true
             }
             return@BackHandler
         }
+        // On other root tabs: double-back to exit
         val now = SystemClock.elapsedRealtime()
         if (now - backPressTime < 2000) {
             (context as? android.app.Activity)?.finish()
@@ -147,35 +149,18 @@ fun NSAINavGraph(
                         NavigationBarItem(
                             selected = selected,
                             onClick = {
-                                if (isHeroAnimating || currentRoute == item.route) return@NavigationBarItem
-                                // Hero exit: leaving AI tab
-                                if (currentRoute == Screen.AIHome.route && heroBudgetOk) {
-                                    heroState = HeroState.Exiting(aiIconBounds)
-                                    navController.navigate(previousTab) {
-                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                        launchSingleTop = true; restoreState = true
-                                    }
-                                    return@NavigationBarItem
-                                }
-                                // Hero enter: entering AI tab
-                                if (item.route == Screen.AIHome.route && heroBudgetOk) {
+                                if (currentRoute == item.route) return@NavigationBarItem
+                                // 记录离开AI前的tab
+                                if (currentRoute == Screen.AIHome.route) {
                                     previousTab = currentRoute ?: Screen.NoteList.route
-                                    heroState = HeroState.Entering(aiIconBounds)
-                                    navController.navigate(item.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                        launchSingleTop = true; restoreState = true
-                                    }
-                                    return@NavigationBarItem
                                 }
-                                // Normal navigation (Notes ↔ Files)
-                                if (inputThrottler.shouldAllowNavigation(item.route)) {
-                                    navController.navigate(item.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
-                                        }
-                                        launchSingleTop = true
-                                        restoreState = true
+                                // 统一导航逻辑：所有tab切换直接执行
+                                navController.navigate(item.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
                                     }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
                             },
                             icon = {
@@ -306,15 +291,12 @@ fun NSAINavGraph(
                         navController.navigate(Screen.MCPSkill.route)
                     },
                     onExitAI = {
-                        if (heroBudgetOk) {
-                            heroState = HeroState.Exiting(aiIconBounds)
-                            navController.navigate(previousTab) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true; restoreState = true
-                            }
+                        navController.navigate(previousTab) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
                         }
                     }
-                    // Activation navigation temporarily removed
                 )
             }
 
