@@ -3,7 +3,6 @@ package com.nsai.notes.presentation.ai
 import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -19,12 +18,10 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -47,25 +44,17 @@ import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -76,14 +65,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -119,12 +105,12 @@ import com.nsai.notes.domain.model.Note
 import com.nsai.notes.presentation.ai.components.AIReplyActions
 import com.nsai.notes.presentation.ai.components.AgentStepCard
 import com.nsai.notes.presentation.ai.components.WorkspaceTab
-import com.nsai.notes.presentation.ai.components.WorkspaceTabs
+import com.nsai.notes.presentation.ai.components.WorkspaceSegmentedSwitch
+import com.nsai.notes.presentation.ai.components.CollapsibleTopBar
+import com.nsai.notes.presentation.ai.components.ElevatedInputIsland
+import com.nsai.notes.presentation.ai.components.SuggestionGrid
+import com.nsai.notes.presentation.ai.components.Suggestion
 import com.nsai.notes.presentation.theme.LocalAnimationConfig
-
-private data class Suggestion(
-    val icon: ImageVector, val title: String, val prompt: String, val gradient: List<Color>
-)
 
 private val suggestions = listOf(
     Suggestion(Icons.Default.Lightbulb, "创意灵感", "给我一些创意写作的灵感", listOf(Color(0xFFFF6B6B), Color(0xFFFF8E53))),
@@ -135,7 +121,7 @@ private val suggestions = listOf(
     Suggestion(Icons.Default.Brush, "内容润色", "帮我润色这段文字使其更流畅", listOf(Color(0xFFFD79A8), Color(0xFFFDCB6E)))
 )
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AIHomeScreen(
     onNavigateToNoteChat: (Long) -> Unit,
@@ -153,13 +139,15 @@ fun AIHomeScreen(
     var showBrowser by remember { mutableStateOf(false) }
     var browserUrl by remember { mutableStateOf("https://www.google.com") }
     var showMoreSheet by remember { mutableStateOf(false) }
-    var showModelMenu by remember { mutableStateOf(false) }
     var showUpgradeDialog by remember { mutableStateOf(false) }
     val hasConversation = uiState.messages.size > 1
     val density = LocalDensity.current
     val config = LocalConfiguration.current
     val bottomThresholdPx = with(density) { config.screenHeightDp.dp.toPx() * 0.75f }
     var dragStartY by remember { mutableFloatStateOf(0f) }
+    
+    // 可折叠顶栏滚动行为
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
@@ -222,94 +210,25 @@ fun AIHomeScreen(
     }
 
     Scaffold(
-        modifier = Modifier.pointerInput(Unit) {
-            detectVerticalDragGestures(
-                onDragStart = { offset -> dragStartY = offset.y },
-                onVerticalDrag = { _, _ -> },
-                onDragEnd = {
-                    if (dragStartY > bottomThresholdPx) onExitAI()
-                }
-            )
-        },
-        topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("NSAI AI", style = MaterialTheme.typography.titleLarge)
-                        Spacer(Modifier.width(8.dp))
-                        Box {
-                            Card(
-                                modifier = Modifier.clickable { showModelMenu = true },
-                                shape = RoundedCornerShape(8.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f))
-                            ) {
-                                Row(Modifier.padding(horizontal = 10.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Box(Modifier.size(8.dp).clip(CircleShape).background(
-                                        if (uiState.selectedProvider.supportsVision) Color(0xFF4CAF50) else Color(0xFFBDBDBD)))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(uiState.selectedProvider.displayName,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                                    Spacer(Modifier.width(3.dp))
-                                    Icon(Icons.Default.AutoAwesome, null, Modifier.size(10.dp),
-                                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
-                                }
-                            }
-                            DropdownMenu(expanded = showModelMenu, onDismissRequest = { showModelMenu = false }) {
-                                AIProvider.entries.forEach { provider ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(provider.displayName, style = MaterialTheme.typography.bodyMedium)
-                                                if (provider == uiState.selectedProvider) {
-                                                    Spacer(Modifier.width(8.dp))
-                                                    Text("✓", color = MaterialTheme.colorScheme.primary)
-                                                }
-                                            }
-                                        },
-                                        onClick = { showModelMenu = false; viewModel.onEvent(AIHomeEvent.SelectProvider(provider)) },
-                                        leadingIcon = {
-                                            val dotColor = if (provider.supportsVision) Color(0xFF4CAF50) else Color(0xFFBDBDBD)
-                                            Box(Modifier.size(12.dp).clip(CircleShape).background(dotColor))
-                                        }
-                                    )
-                                }
-                            }
-                        }
+        modifier = Modifier
+            .nestedScroll(scrollBehavior.nestedScrollConnection)
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onDragStart = { offset -> dragStartY = offset.y },
+                    onVerticalDrag = { _, _ -> },
+                    onDragEnd = {
+                        if (dragStartY > bottomThresholdPx) onExitAI()
                     }
-                },
-                actions = {
-                    // Membership badge — temporarily removed
-                    /* val licenseActive = viewModel.isLicenseActive()
-                    IconButton(onClick = onNavigateToActivation) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Star, "会员",
-                                Modifier.size(22.dp),
-                                tint = if (licenseActive) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurfaceVariant)
-                            Box(
-                                Modifier.size(8.dp).align(Alignment.BottomEnd).offset(2.dp, 2.dp)
-                                    .clip(CircleShape)
-                                    .background(if (licenseActive) Color(0xFF4CAF50) else Color(0xFFBDBDBD))
-                            )
-                        }
-                    } */
-                    IconButton(onClick = { viewModel.onEvent(AIHomeEvent.ToggleHistory) }) {
-                        Icon(Icons.Default.History, "历史",
-                            tint = if (uiState.showHistory) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    IconButton(onClick = onNavigateToMCPSkill) {
-                        Icon(Icons.Default.Extension, "插件", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    IconButton(onClick = onNavigateToModelSettings) {
-                        Icon(Icons.Default.Settings, "设置", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            },
+        topBar = {
+            CollapsibleTopBar(
+                selectedProvider = uiState.selectedProvider,
+                onProviderSelected = { provider -> viewModel.onEvent(AIHomeEvent.SelectProvider(provider)) },
+                onHistoryClick = { viewModel.onEvent(AIHomeEvent.ToggleHistory) },
+                onSettingsClick = onNavigateToModelSettings,
+                onMCPSkillClick = onNavigateToMCPSkill,
+                scrollBehavior = scrollBehavior
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -340,69 +259,23 @@ fun AIHomeScreen(
                 }
             }
 
-            // Workspace tabs (v1.1)
+            // Workspace segmented switch
             val currentTab = when {
                 uiState.isAgentMode -> WorkspaceTab.AGENT
                 uiState.isRagMode -> WorkspaceTab.RAG
                 else -> WorkspaceTab.CHAT
             }
-            WorkspaceTabs(currentTab) { tab ->
-                when (tab) {
-                    WorkspaceTab.CHAT -> viewModel.onEvent(AIHomeEvent.SelectMode(AIMode.QUICK))
-                    WorkspaceTab.AGENT -> viewModel.onEvent(AIHomeEvent.ToggleAgentMode)
-                    WorkspaceTab.RAG -> viewModel.onEvent(AIHomeEvent.ToggleRagMode)
-                }
-            }
-            
-            // Mode selection chips — Quick / Think / Image
-            if (!uiState.isAgentMode && !uiState.isRagMode) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = AIMode.QUICK == uiState.currentMode,
-                        onClick = { viewModel.onEvent(AIHomeEvent.SelectMode(AIMode.QUICK)) },
-                        label = { Text("快速", style = MaterialTheme.typography.labelSmall) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.secondary,
-                            selectedLabelColor = MaterialTheme.colorScheme.onSecondary
-                        )
-                    )
-                    FilterChip(
-                        selected = AIMode.THINK == uiState.currentMode,
-                        onClick = { viewModel.onEvent(AIHomeEvent.SelectMode(AIMode.THINK)) },
-                        label = { Text("思考", style = MaterialTheme.typography.labelSmall) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.secondary,
-                            selectedLabelColor = MaterialTheme.colorScheme.onSecondary
-                        )
-                    )
-                    FilterChip(
-                        selected = AIMode.IMAGE == uiState.currentMode,
-                        onClick = { viewModel.onEvent(AIHomeEvent.SelectMode(AIMode.IMAGE)) },
-                        label = { Text("图片", style = MaterialTheme.typography.labelSmall) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.secondary,
-                            selectedLabelColor = MaterialTheme.colorScheme.onSecondary
-                        )
-                    )
-                    // Web search toggle
-                    Spacer(Modifier.weight(1f))
-                    IconButton(
-                        onClick = { viewModel.onEvent(AIHomeEvent.ToggleWebSearch) },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.TravelExplore, "联网搜索",
-                            Modifier.size(18.dp),
-                            tint = if (uiState.isWebSearchMode) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                        )
+            WorkspaceSegmentedSwitch(
+                currentTab = currentTab,
+                onSelectTab = { tab ->
+                    when (tab) {
+                        WorkspaceTab.CHAT -> viewModel.onEvent(AIHomeEvent.SelectMode(AIMode.QUICK))
+                        WorkspaceTab.AGENT -> viewModel.onEvent(AIHomeEvent.ToggleAgentMode)
+                        WorkspaceTab.RAG -> viewModel.onEvent(AIHomeEvent.ToggleRagMode)
                     }
                 }
-            }
-
+            )
+            
             // "+" more button + context inline
             Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 1.dp),
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -419,8 +292,6 @@ fun AIHomeScreen(
                 }
             }
 
-            // Input bar
-            val isImageMode = uiState.currentMode == AIMode.IMAGE
             // Exit AI button
             Box(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
@@ -434,24 +305,27 @@ fun AIHomeScreen(
                     )
                 }
             }
-            InputBar(
+
+            // Elevated Input Island
+            val isImageMode = uiState.currentMode == AIMode.IMAGE
+            ElevatedInputIsland(
                 text = if (isImageMode) uiState.imagePrompt else uiState.inputText,
-                isLoading = uiState.isLoading,
-                placeholder = when (currentTab) {
-                    WorkspaceTab.AGENT -> "输入任务指令..."
-                    WorkspaceTab.RAG -> "输入问题，从笔记中检索..."
-                    else -> if (isImageMode) "输入图片描述..." else "输入消息..."
-                },
                 onTextChange = { if (isImageMode) viewModel.onEvent(AIHomeEvent.UpdateImagePrompt(it)) else viewModel.onEvent(AIHomeEvent.UpdateInput(it)) },
                 onSend = {
-                    // License check temporarily disabled
                     if (isImageMode) {
                         viewModel.onEvent(AIHomeEvent.GenerateImage)
                     } else {
                         viewModel.onEvent(AIHomeEvent.SendMessage)
                     }
                 },
-                onBrowser = { browserUrl = ""; showBrowser = true }
+                isLoading = uiState.isLoading,
+                isWebSearchEnabled = uiState.isWebSearchMode,
+                onToggleWebSearch = { viewModel.onEvent(AIHomeEvent.ToggleWebSearch) },
+                placeholder = when (currentTab) {
+                    WorkspaceTab.AGENT -> "输入任务指令..."
+                    WorkspaceTab.RAG -> "输入问题，从笔记中检索..."
+                    else -> if (isImageMode) "输入图片描述..." else "输入消息..."
+                }
             )
         }
     }
@@ -530,30 +404,7 @@ private fun contextLabel(state: AIHomeUiState): String = buildString {
     if (state.isRagMode) append(" · 知识库检索")
 }
 
-// ─── Mode Chip ───
-@Composable
-private fun ModeChip(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
-    val tokens = LocalAnimationConfig.current
-    val bgColor by animateColorAsState(
-        targetValue = if (selected) MaterialTheme.colorScheme.primaryContainer
-        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        animationSpec = tween(tokens.fastDuration), label = "chipBg"
-    )
-    val contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-    Card(
-        modifier = Modifier.clickable(onClick = onClick), shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = bgColor), elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, Modifier.size(14.dp), tint = contentColor)
-            Spacer(Modifier.width(4.dp))
-            Text(label, style = MaterialTheme.typography.labelSmall, color = contentColor)
-        }
-    }
-}
-
 // ─── Welcome View ───
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WelcomeView(onSuggestion: (String) -> Unit, notes: List<Note>, onNoteClick: (Long) -> Unit) {
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -563,28 +414,10 @@ private fun WelcomeView(onSuggestion: (String) -> Unit, notes: List<Note>, onNot
             Spacer(Modifier.height(14.dp))
         }
         item {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                suggestions.forEach { s ->
-                    Card(
-                        modifier = Modifier.clickable { onSuggestion(s.prompt) }, shape = RoundedCornerShape(16.dp),
-                        elevation = CardDefaults.cardElevation(1.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.background(s.gradient.first().copy(alpha = 0.08f))
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(s.icon, null, Modifier.size(20.dp), tint = s.gradient.first())
-                            Spacer(Modifier.width(10.dp))
-                            Column {
-                                Text(s.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                                Text(s.prompt, style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), maxLines = 1)
-                            }
-                        }
-                    }
-                }
-            }
+            SuggestionGrid(
+                suggestions = suggestions,
+                onSuggestionClick = onSuggestion
+            )
         }
         if (notes.isNotEmpty()) {
             item { HorizontalDivider(modifier = Modifier.padding(top = 4.dp)) }
@@ -697,6 +530,7 @@ private fun ChatBubble(message: ChatMessage, isLastAIMessage: Boolean = false, o
     else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
     val shape = if (isUser) RoundedCornerShape(16.dp, 4.dp, 16.dp, 16.dp)
     else RoundedCornerShape(4.dp, 16.dp, 16.dp, 16.dp)
+    val elevation = if (isUser) 2.dp else 1.dp
 
     // Typewriter effect for AI messages — frame-synced for smooth rendering
     val initialChars = if (isUser || !isLastAIMessage) message.content.length else 1
@@ -720,12 +554,49 @@ private fun ChatBubble(message: ChatMessage, isLastAIMessage: Boolean = false, o
     val typewriterDone = displayedChars >= message.content.length
 
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalAlignment = alignment) {
+        // AI 头像 + 名称 + 时间
         if (!isUser) {
-            Text("AI 助手", style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
+            Row(
+                modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // AI 头像
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .background(
+                            MaterialTheme.colorScheme.primaryContainer,
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.AutoAwesome,
+                        null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    "AI 助手",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+                        .format(java.util.Date(message.timestamp)),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                )
+            }
         }
-        Card(colors = CardDefaults.cardColors(containerColor = bg), shape = shape, elevation = CardDefaults.cardElevation(0.dp)) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = bg),
+            shape = shape,
+            elevation = CardDefaults.cardElevation(defaultElevation = elevation)
+        ) {
             Column {
                 message.reasoningContent?.let { reasoning ->
                     var expanded by remember { mutableStateOf(false) }
@@ -776,54 +647,6 @@ private fun ChatBubble(message: ChatMessage, isLastAIMessage: Boolean = false, o
                 onSaveAsNote = { onSaveAsNote(message.content) },
                 onRetry = onRetry
             )
-        }
-    }
-}
-
-// ─── Input Bar ───
-@Composable
-private fun InputBar(
-    text: String, isLoading: Boolean, onTextChange: (String) -> Unit,
-    onSend: () -> Unit, onBrowser: () -> Unit,
-    placeholder: String = "输入消息..."
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(26.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedTextField(
-                value = text, onValueChange = onTextChange, modifier = Modifier.weight(1f),
-                placeholder = { Text(placeholder, style = MaterialTheme.typography.bodyMedium) },
-                singleLine = true, shape = RoundedCornerShape(22.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent,
-                    focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent
-                )
-            )
-            IconButton(onClick = onBrowser, modifier = Modifier.size(38.dp)) {
-                Icon(Icons.Default.TravelExplore, "浏览器", Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            val canSend = text.isNotBlank() && !isLoading
-            Box(
-                Modifier.size(38.dp).clip(CircleShape)
-                    .background(if (canSend) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isLoading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                else IconButton(onClick = onSend, enabled = canSend, modifier = Modifier.size(38.dp)) {
-                    Icon(Icons.AutoMirrored.Filled.Send, "发送", Modifier.size(18.dp),
-                        tint = if (canSend) MaterialTheme.colorScheme.onPrimary
-                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
-                }
-            }
         }
     }
 }
