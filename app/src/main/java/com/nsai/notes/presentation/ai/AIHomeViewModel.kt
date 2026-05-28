@@ -31,6 +31,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.nsai.notes.data.remote.ai.ConnectionTester
+import com.nsai.notes.domain.model.AIProviderConfig
 
 val GREETING_MESSAGE = ChatMessage(ChatMessage.Role.ASSISTANT,
     "你好！我是AI笔记助手。\n⚡快速模式 | 🧠思考模式 | 🎨图片生成\n📝AI写文档 | 🤖AI Agent\n选择模式开始体验！"
@@ -58,7 +60,9 @@ data class AIHomeUiState(
     val searchEngine: String = SearchEngine.BING.name,
     val searchEngineCustomUrl: String = "",
     val bookmarks: List<SettingsDataStore.Bookmark> = emptyList(),
-    val searchHistory: List<String> = emptyList()
+    val searchHistory: List<String> = emptyList(),
+    val providerConfigs: List<AIProviderConfig> = emptyList(),
+    val testResults: Map<AIProvider, String> = emptyMap()
 )
 
 sealed class AIHomeEvent {
@@ -86,6 +90,9 @@ sealed class AIHomeEvent {
     data object ClearSearchHistory : AIHomeEvent()
     data class SetSearchEngine(val engine: String) : AIHomeEvent()
     data class SetSearchEngineCustomUrl(val url: String) : AIHomeEvent()
+    data class UpdateApiKey(val provider: AIProvider, val apiKey: String) : AIHomeEvent()
+    data class UpdateBaseUrl(val provider: AIProvider, val baseUrl: String) : AIHomeEvent()
+    data class TestConnection(val provider: AIProvider) : AIHomeEvent()
 }
 
 @HiltViewModel
@@ -99,7 +106,8 @@ class AIHomeViewModel @Inject constructor(
     private val webSearchService: WebSearchService,
     private val retrieveContextUseCase: RetrieveContextUseCase,
     private val reActLoop: ReActLoop,
-    private val licenseManager: LicenseManager
+    private val licenseManager: LicenseManager,
+    private val connectionTester: ConnectionTester
 ) : ViewModel() {
 
     fun isLicenseActive(): Boolean = licenseManager.isActive.value
@@ -113,11 +121,12 @@ class AIHomeViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            loadSelectedProvider()        // needed for UI display
-            loadSearchEngine()            // needed for search settings
+            loadSelectedProvider()
+            loadSearchEngine()
             loadNotes()
             loadHistory()
             loadBookmarksAndHistory()
+            loadProviderConfigs()
         }
     }
 
@@ -142,6 +151,74 @@ class AIHomeViewModel @Inject constructor(
         }
     }
 
+    private fun loadProviderConfigs() {
+        viewModelScope.launch {
+            settingsDataStore.getAllProviderConfigs().collect { configs ->
+                _uiState.value = _uiState.value.copy(providerConfigs = configs)
+            }
+        }
+    }
+
+    private fun selectProvider(provider: AIProvider) {
+        _uiState.value = _uiState.value.copy(selectedProvider = provider)
+        viewModelScope.launch {
+            settingsDataStore.setSelectedProvider(provider)
+        }
+    }
+
+    private fun updateApiKey(provider: AIProvider, apiKey: String) {
+        val configs = _uiState.value.providerConfigs.map {
+            if (it.provider == provider) it.copy(apiKey = apiKey) else it
+        }
+        _uiState.value = _uiState.value.copy(providerConfigs = configs)
+        viewModelScope.launch {
+            val current = configs.find { it.provider == provider }
+            settingsDataStore.saveProviderConfig(
+                AIProviderConfig(
+                    provider = provider,
+                    apiKey = apiKey,
+                    baseUrl = current?.baseUrl ?: provider.defaultBaseUrl,
+                    isEnabled = current?.isEnabled ?: false
+                )
+            )
+        }
+    }
+
+    private fun updateBaseUrl(provider: AIProvider, baseUrl: String) {
+        val configs = _uiState.value.providerConfigs.map {
+            if (it.provider == provider) it.copy(baseUrl = baseUrl) else it
+        }
+        _uiState.value = _uiState.value.copy(providerConfigs = configs)
+        viewModelScope.launch {
+            val current = configs.find { it.provider == provider }
+            settingsDataStore.saveProviderConfig(
+                AIProviderConfig(
+                    provider = provider,
+                    apiKey = current?.apiKey ?: "",
+                    baseUrl = baseUrl,
+                    isEnabled = current?.isEnabled ?: false
+                )
+            )
+        }
+    }
+
+    private fun testConnection(provider: AIProvider) {
+        _uiState.value = _uiState.value.copy(
+            testResults = _uiState.value.testResults + (provider to "测试中...")
+        )
+        viewModelScope.launch {
+            val config = _uiState.value.providerConfigs.find { it.provider == provider }
+            val result = connectionTester.testConnection(
+                provider,
+                config?.apiKey ?: "",
+                config?.baseUrl ?: provider.defaultBaseUrl
+            )
+            _uiState.value = _uiState.value.copy(
+                testResults = _uiState.value.testResults + (provider to result)
+            )
+        }
+    }
+
     suspend fun getSearchEngine(): String = settingsDataStore.getSearchEngine()
 
     private fun loadBookmarksAndHistory() {
@@ -161,7 +238,7 @@ class AIHomeViewModel @Inject constructor(
             is AIHomeEvent.UpdateInput -> _uiState.value = _uiState.value.copy(inputText = event.text)
             AIHomeEvent.SendMessage -> sendMessage()
             is AIHomeEvent.SelectMode -> selectMode(event.mode)
-            is AIHomeEvent.SelectProvider -> _uiState.value = _uiState.value.copy(selectedProvider = event.provider)
+            is AIHomeEvent.SelectProvider -> selectProvider(event.provider)
             is AIHomeEvent.UpdateImagePrompt -> _uiState.value = _uiState.value.copy(imagePrompt = event.prompt)
             AIHomeEvent.GenerateImage -> generateImage()
             AIHomeEvent.ToggleAgentMode -> toggleAgent()
@@ -189,6 +266,9 @@ class AIHomeViewModel @Inject constructor(
             AIHomeEvent.ClearSearchHistory -> clearSearchHistory()
             is AIHomeEvent.SetSearchEngine -> setSearchEngine(event.engine)
             is AIHomeEvent.SetSearchEngineCustomUrl -> setSearchEngineCustomUrl(event.url)
+            is AIHomeEvent.UpdateApiKey -> updateApiKey(event.provider, event.apiKey)
+            is AIHomeEvent.UpdateBaseUrl -> updateBaseUrl(event.provider, event.baseUrl)
+            is AIHomeEvent.TestConnection -> testConnection(event.provider)
         }
     }
 
