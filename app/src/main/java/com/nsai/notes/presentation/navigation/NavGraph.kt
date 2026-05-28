@@ -48,7 +48,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.nsai.notes.performance.FluidityManager
-import com.nsai.notes.performance.InputThrottler
 import com.nsai.notes.presentation.ai.AIChatScreen
 import com.nsai.notes.presentation.ai.AIHomeScreen
 import com.nsai.notes.presentation.ai.AIModelSettingsScreen
@@ -66,8 +65,7 @@ private val tabRoutes = setOf(Screen.NoteList.route, Screen.Files.route, Screen.
 @Composable
 fun NSAINavGraph(
     navController: NavHostController = rememberNavController(),
-    fluidityManager: FluidityManager,
-    inputThrottler: InputThrottler
+    fluidityManager: FluidityManager
 ) {
     val tokens = LocalAnimationConfig.current
     val navBackStackEntry by navController.currentBackStackEntryAsState()

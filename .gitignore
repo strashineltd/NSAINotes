@@ -15,6 +15,9 @@ app/keystore.jks
 *.jks
 *.keystore
 
+# Kotlin
+.kotlin/
+
 # OS
 .DS_Store
 Thumbs.db
@@ -22,3 +25,15 @@ Thumbs.db
 # Secrets
 *.env
 secrets.properties
+
+# Build artifacts
+build_output.txt
+*.apk
+*.aab
+
+# Temporary images
+*.jpg
+*.jpeg
+*.png
+!app/src/main/res/**/*.png
+!app/src/main/res/**/*.jpg

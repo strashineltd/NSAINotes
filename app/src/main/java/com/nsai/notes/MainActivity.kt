@@ -239,7 +239,7 @@ private fun NSAINotesMainFrame(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
-            NSAINavGraph(fluidityManager = fluidityManager, inputThrottler = inputThrottler)
+            NSAINavGraph(fluidityManager = fluidityManager)
         }
 
         // Tutorial overlay — shown on first launch after privacy acceptance
