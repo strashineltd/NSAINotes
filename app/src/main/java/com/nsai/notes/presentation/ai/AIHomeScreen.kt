@@ -59,6 +59,11 @@ fun AIHomeScreen(
             onDismiss = { showSettings = false },
             selectedProvider = uiState.selectedProvider,
             onProviderChange = { viewModel.onEvent(AIHomeEvent.SelectProvider(it)) },
+            providerConfigs = uiState.providerConfigs,
+            onUpdateApiKey = { provider, key -> viewModel.onEvent(AIHomeEvent.UpdateApiKey(provider, key)) },
+            onUpdateBaseUrl = { provider, url -> viewModel.onEvent(AIHomeEvent.UpdateBaseUrl(provider, url)) },
+            onTestConnection = { provider -> viewModel.onEvent(AIHomeEvent.TestConnection(provider)) },
+            testResults = uiState.testResults,
             searchEngine = uiState.searchEngine,
             onSearchEngineChange = { viewModel.onEvent(AIHomeEvent.SetSearchEngine(it)) },
             onClearHistory = {
@@ -95,6 +100,7 @@ fun AIHomeScreen(
                         }
                     }
                 },
+                onHistoryClick = { viewModel.onEvent(AIHomeEvent.ToggleHistory) },
                 onSettingsClick = { showSettings = true }
             )
 
