@@ -8,7 +8,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -17,20 +16,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.nsai.notes.domain.model.AIMode
 import com.nsai.notes.presentation.ai.components.AIContent
 import com.nsai.notes.presentation.ai.components.ConversationHistoryDrawer
-import com.nsai.notes.presentation.ai.components.CollapsibleTopBar
-import com.nsai.notes.presentation.ai.components.MoreModesSheet
-import com.nsai.notes.presentation.ai.components.WorkspaceBar
-import com.nsai.notes.presentation.ai.components.WorkspaceTab
+import com.nsai.notes.presentation.ai.components.FlowInputBar
+import com.nsai.notes.presentation.ai.components.FlowTab
+import com.nsai.notes.presentation.ai.components.FlowTopBar
+import com.nsai.notes.presentation.ai.components.SettingsSheet
 
-/**
- * AI主界面 - 精简状态管理层
- * 所有UI组件已提取到独立文件
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AIHomeScreen(
@@ -42,31 +35,18 @@ fun AIHomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-
-    // 浏览器对话框状态
     var showBrowser by remember { mutableStateOf(false) }
-    var browserUrl by remember { mutableStateOf("https://www.google.com") }
+    var browserUrl by remember { mutableStateOf("") }
+    var showSettings by remember { mutableStateOf(false) }
 
-    // 更多模式底部sheet
-    var showMoreSheet by remember { mutableStateOf(false) }
-
-    // 当前工作区标签
-    val currentTab = when {
-        uiState.isAgentMode -> WorkspaceTab.AGENT
-        uiState.isRagMode -> WorkspaceTab.RAG
-        else -> WorkspaceTab.CHAT
+    val selectedTab = when {
+        uiState.isAgentMode -> FlowTab.AGENT
+        uiState.isRagMode -> FlowTab.RAG
+        else -> FlowTab.CHAT
     }
 
-    // 是否有对话内容
     val hasConversation = uiState.messages.size > 1
 
-    // 自动滚动到底部
-    LaunchedEffect(uiState.messages.size) {
-        // 滚动逻辑由ChatContainer内部的LazyListState处理
-    }
-
-    // 错误提示
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
             snackbarHostState.showSnackbar(it)
@@ -74,48 +54,52 @@ fun AIHomeScreen(
         }
     }
 
-    // 更多模式底部Sheet
-    if (showMoreSheet) {
-        MoreModesSheet(
-            onDismiss = { showMoreSheet = false },
-            onSelectAgent = { viewModel.onEvent(AIHomeEvent.ToggleAgentMode) },
-            onSelectRag = { viewModel.onEvent(AIHomeEvent.ToggleRagMode) },
-            onSelectImage = { viewModel.onEvent(AIHomeEvent.SelectMode(AIMode.IMAGE)) },
-            onSelectDocGen = { viewModel.onEvent(AIHomeEvent.ToggleDocGenMode) }
+    if (showSettings) {
+        SettingsSheet(
+            onDismiss = { showSettings = false },
+            selectedProvider = uiState.selectedProvider,
+            onProviderChange = { viewModel.onEvent(AIHomeEvent.SelectProvider(it)) },
+            searchEngine = uiState.searchEngine,
+            onSearchEngineChange = { viewModel.onEvent(AIHomeEvent.SetSearchEngine(it)) },
+            onClearHistory = {
+                uiState.conversationHistory.forEach { conv ->
+                    viewModel.onEvent(AIHomeEvent.DeleteConversation(conv.id))
+                }
+                showSettings = false
+            }
         )
     }
 
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            CollapsibleTopBar(
-                selectedProvider = uiState.selectedProvider,
-                onProviderSelected = { provider ->
-                    viewModel.onEvent(AIHomeEvent.SelectProvider(provider))
-                },
-                onHistoryClick = { viewModel.onEvent(AIHomeEvent.ToggleHistory) },
-                onSettingsClick = onNavigateToModelSettings,
-                onMCPSkillClick = onNavigateToMCPSkill,
-                onBrowserClick = {
-                    browserUrl = "https://www.google.com"
-                    showBrowser = true
-                },
-                scrollBehavior = scrollBehavior
-            )
-        },
         snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { paddingValues ->
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(padding)
                 .imePadding()
         ) {
-            // 主内容区
+            FlowTopBar(
+                selectedTab = selectedTab,
+                onTabSelected = { tab ->
+                    when (tab) {
+                        FlowTab.CHAT -> {
+                            if (uiState.isAgentMode) viewModel.onEvent(AIHomeEvent.ToggleAgentMode)
+                            if (uiState.isRagMode) viewModel.onEvent(AIHomeEvent.ToggleRagMode)
+                        }
+                        FlowTab.AGENT -> {
+                            if (!uiState.isAgentMode) viewModel.onEvent(AIHomeEvent.ToggleAgentMode)
+                        }
+                        FlowTab.RAG -> {
+                            if (!uiState.isRagMode) viewModel.onEvent(AIHomeEvent.ToggleRagMode)
+                        }
+                    }
+                },
+                onSettingsClick = { showSettings = true }
+            )
+
             AIContent(
-                showChat = hasConversation || uiState.isLoading,
+                showChat = hasConversation,
                 messages = uiState.messages,
                 isLoading = uiState.isLoading,
                 searchResults = uiState.searchResults,
@@ -124,52 +108,35 @@ fun AIHomeScreen(
                     browserUrl = url
                     showBrowser = true
                 },
-                onSaveAsNote = { content ->
-                    viewModel.onEvent(AIHomeEvent.SaveAsNote(content))
-                },
+                onSaveAsNote = { content -> viewModel.onEvent(AIHomeEvent.SaveAsNote(content)) },
                 onRetry = { viewModel.onEvent(AIHomeEvent.SendMessage) },
                 onSuggestion = { prompt ->
                     viewModel.onEvent(AIHomeEvent.UpdateInput(prompt))
                     viewModel.onEvent(AIHomeEvent.SendMessage)
                 },
-                notes = uiState.recentNotes,
-                onNoteClick = onNavigateToNoteChat,
                 modifier = Modifier.weight(1f)
             )
 
-            // 底部工作区
-            val isImageMode = uiState.currentMode == AIMode.IMAGE
-            WorkspaceBar(
-                currentTab = currentTab,
-                onSelectTab = { tab ->
-                    when (tab) {
-                        WorkspaceTab.CHAT -> viewModel.onEvent(AIHomeEvent.SelectMode(AIMode.QUICK))
-                        WorkspaceTab.AGENT -> viewModel.onEvent(AIHomeEvent.ToggleAgentMode)
-                        WorkspaceTab.RAG -> viewModel.onEvent(AIHomeEvent.ToggleRagMode)
-                    }
-                },
-                isImageMode = isImageMode,
-                inputText = uiState.inputText,
-                imagePrompt = uiState.imagePrompt,
+            FlowInputBar(
+                text = uiState.inputText,
                 onTextChange = { viewModel.onEvent(AIHomeEvent.UpdateInput(it)) },
-                onImagePromptChange = { viewModel.onEvent(AIHomeEvent.UpdateImagePrompt(it)) },
                 onSend = {
-                    if (isImageMode) {
-                        viewModel.onEvent(AIHomeEvent.GenerateImage)
-                    } else {
+                    if (!uiState.isLoading) {
                         viewModel.onEvent(AIHomeEvent.SendMessage)
                     }
                 },
                 isLoading = uiState.isLoading,
+                placeholder = when (selectedTab) {
+                    FlowTab.AGENT -> "描述你要执行的任务..."
+                    FlowTab.RAG -> "搜索笔记..."
+                    else -> "输入问题..."
+                },
                 isWebSearchEnabled = uiState.isWebSearchMode,
-                onToggleWebSearch = { viewModel.onEvent(AIHomeEvent.ToggleWebSearch) },
-                contextLabel = contextLabel(uiState),
-                onMoreClick = { showMoreSheet = true }
+                onToggleWebSearch = { viewModel.onEvent(AIHomeEvent.ToggleWebSearch) }
             )
         }
     }
 
-    // 历史抽屉
     ConversationHistoryDrawer(
         visible = uiState.showHistory,
         conversations = uiState.conversationHistory,
@@ -180,7 +147,6 @@ fun AIHomeScreen(
         onDismiss = { viewModel.onEvent(AIHomeEvent.ToggleHistory) }
     )
 
-    // 浏览器对话框
     if (showBrowser) {
         WebBrowserDialog(
             initialUrl = browserUrl,
@@ -193,22 +159,9 @@ fun AIHomeScreen(
             onSearchEngineCustomUrlChange = { viewModel.onEvent(AIHomeEvent.SetSearchEngineCustomUrl(it)) },
             onAddBookmark = { title, url -> viewModel.onEvent(AIHomeEvent.AddBookmark(title, url)) },
             onRemoveBookmark = { url -> viewModel.onEvent(AIHomeEvent.RemoveBookmark(url)) },
-            onAddSearchHistory = { query -> viewModel.onEvent(AIHomeEvent.AddSearchHistory(query)) },
+            onAddSearchHistory = { q -> viewModel.onEvent(AIHomeEvent.AddSearchHistory(q)) },
             onClearSearchHistory = { viewModel.onEvent(AIHomeEvent.ClearSearchHistory) },
             onDismiss = { showBrowser = false }
         )
     }
-}
-
-/**
- * 构建上下文标签文本
- */
-private fun contextLabel(state: AIHomeUiState): String = buildString {
-    val provider = state.selectedProvider.displayName
-    append(provider)
-    if (state.isWebSearchMode) append(" · 联网搜索")
-    if (state.currentMode == AIMode.THINK) append(" · 思考模式")
-    if (state.currentMode == AIMode.IMAGE) append(" · 图片生成")
-    if (state.isAgentMode) append(" · 工具: 8个可用")
-    if (state.isRagMode) append(" · 知识库检索")
 }
