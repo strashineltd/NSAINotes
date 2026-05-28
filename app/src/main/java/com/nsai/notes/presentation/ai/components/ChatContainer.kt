@@ -48,7 +48,7 @@ fun ChatContainer(
     ) {
         val lastAIMessageIndex = messages.indexOfLast { it.role == ChatMessage.Role.ASSISTANT }
 
-        items(messages, key = { it.id }) { message ->
+        items(messages, key = { it.timestamp }) { message ->
             AnimatedVisibility(
                 visible = true,
                 enter = fadeIn(tween(animConfig.fastDuration)) + slideInVertically(
