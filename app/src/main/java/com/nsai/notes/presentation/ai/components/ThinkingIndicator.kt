@@ -6,16 +6,17 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -25,43 +26,50 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.unit.dp
 import com.nsai.notes.presentation.theme.LocalAnimationConfig
 
-/**
- * AI思考中的加载动画指示器
- */
 @Composable
 fun ThinkingIndicator(modifier: Modifier = Modifier) {
-    val tokens = LocalAnimationConfig.current
-    val transition = rememberInfiniteTransition(label = "thinking_dots")
+    val animConfig = LocalAnimationConfig.current
+    val transition = rememberInfiniteTransition(label = "thinking")
 
     Row(
-        modifier = modifier.padding(start = 4.dp, top = 4.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf(0, 150, 300).forEach { delayMs ->
+        Box(
+            modifier = Modifier
+                .width(2.dp)
+                .height(24.dp)
+                .background(
+                    MaterialTheme.colorScheme.outline,
+                    RoundedCornerShape(1.dp)
+                )
+        )
+        Spacer(Modifier.width(12.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(vertical = 8.dp)
+        ) {
+            listOf(0, 150, 300).forEach { delay ->
                 val scale by transition.animateFloat(
-                    initialValue = 0.3f,
+                    initialValue = 0.4f,
                     targetValue = 1f,
                     animationSpec = infiniteRepeatable(
-                        tween(tokens.normalDuration * 2, delayMillis = delayMs),
-                        RepeatMode.Reverse
+                        animation = tween(400, delayMillis = delay),
+                        repeatMode = RepeatMode.Reverse
                     ),
-                    label = "dot$delayMs"
+                    label = "dot$delay"
                 )
                 Box(
-                    Modifier
-                        .size(5.dp)
+                    modifier = Modifier
+                        .size(6.dp)
                         .scale(scale)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                        .background(MaterialTheme.colorScheme.outline)
                 )
+                if (delay != 300) Spacer(Modifier.width(4.dp))
             }
         }
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = "思考中...",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-        )
     }
 }
