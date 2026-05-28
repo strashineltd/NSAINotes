@@ -101,6 +101,10 @@ fun AIHomeScreen(
                     }
                 },
                 onHistoryClick = { viewModel.onEvent(AIHomeEvent.ToggleHistory) },
+                onBrowserClick = {
+                    browserUrl = ""
+                    showBrowser = true
+                },
                 onSettingsClick = { showSettings = true }
             )
 

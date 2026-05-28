@@ -50,19 +50,18 @@ fun FlowInputBar(
                 .fillMaxWidth()
                 .heightIn(min = 48.dp)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.Bottom,
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (isWebSearchEnabled) {
-                Text(
-                    text = "联网",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .padding(bottom = 6.dp)
-                        .clickable { onToggleWebSearch() }
-                )
-            }
+            Text(
+                text = "联网",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (isWebSearchEnabled) MaterialTheme.colorScheme.primary 
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .clickable { onToggleWebSearch() }
+                    .padding(horizontal = 4.dp, vertical = 2.dp)
+            )
             Box(modifier = Modifier.weight(1f)) {
                 if (text.isEmpty()) {
                     Text(

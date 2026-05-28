@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +37,7 @@ fun FlowTopBar(
     selectedTab: FlowTab,
     onTabSelected: (FlowTab) -> Unit,
     onHistoryClick: () -> Unit,
+    onBrowserClick: () -> Unit,
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -67,6 +69,13 @@ fun FlowTopBar(
                 Icon(
                     Icons.Default.History,
                     contentDescription = "对话历史",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = onBrowserClick) {
+                Icon(
+                    Icons.Default.TravelExplore,
+                    contentDescription = "浏览器",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
