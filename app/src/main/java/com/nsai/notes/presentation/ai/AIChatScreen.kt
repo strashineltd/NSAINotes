@@ -1,6 +1,5 @@
 package com.nsai.notes.presentation.ai
 
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -52,8 +51,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -79,14 +76,13 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.layout.ContentScale
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
 import com.nsai.notes.data.remote.search.SearchResult
 import com.nsai.notes.domain.model.AIProvider
 import com.nsai.notes.domain.model.AIMode
 import com.nsai.notes.domain.model.ChatMessage
 import com.nsai.notes.domain.model.SearchEngine
+import com.nsai.notes.presentation.ai.components.SearchResultCard
 import com.nsai.notes.presentation.theme.LocalAnimationConfig
 import kotlinx.coroutines.delay
 
@@ -331,30 +327,11 @@ fun AIChatScreen(
                 }
                 if (uiState.searchResults.isNotEmpty()) {
                     item(key = "search_results") {
-                        Card(
-                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f))
-                        ) {
-                            Column(Modifier.padding(14.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.TravelExplore, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("联网搜索", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                                }
-                                Spacer(Modifier.height(8.dp))
-                                uiState.searchResults.take(5).forEach { r ->
-                                    Row(Modifier.fillMaxWidth().clickable { browserUrl = r.url; showBrowser = true }.padding(vertical = 6.dp),
-                                        verticalAlignment = Alignment.Top) {
-                                        Column(Modifier.weight(1f)) {
-                                            Text(r.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                            Text(r.snippet.take(80), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        SearchResultCard(
+                            query = uiState.messages.lastOrNull { it.role == ChatMessage.Role.USER }?.content ?: "",
+                            results = uiState.searchResults,
+                            onResultClick = { url -> browserUrl = url; showBrowser = true }
+                        )
                     }
                 }
                 if (uiState.isLoading) {
