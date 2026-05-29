@@ -61,7 +61,7 @@ import com.nsai.notes.presentation.tags.TagManageScreen
 import com.nsai.notes.presentation.theme.LocalAnimationConfig
 import com.nsai.notes.presentation.theme.StandardEasing
 
-private val tabRoutes = setOf(Screen.NoteList.route, Screen.Files.route, Screen.AIHome.route, Screen.Tags.route)
+private val tabRoutes = setOf(Screen.NoteList.route, Screen.Files.route, Screen.AIHome.route)
 
 @Composable
 fun NSAINavGraph(
@@ -75,8 +75,7 @@ fun NSAINavGraph(
     val showBottomBar = currentRoute in listOf(
         Screen.NoteList.route,
         Screen.Files.route,
-        Screen.AIHome.route,
-        Screen.Tags.route
+        Screen.AIHome.route
     )
 
     // Double-back to exit — only on root tab screens
@@ -135,7 +134,6 @@ fun NSAINavGraph(
                             BottomNavItem.NOTES -> Icons.Default.EditNote
                             BottomNavItem.FILES -> Icons.Default.Folder
                             BottomNavItem.AI -> Icons.Default.AutoAwesome
-                            BottomNavItem.TAGS -> Icons.AutoMirrored.Filled.Label
                         }
                         val selected = currentRoute == item.route
                         NavigationBarItem(

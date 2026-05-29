@@ -24,9 +24,9 @@ data class AIModelSettingsUiState(
 )
 
 sealed class AIModelSettingsEvent {
-    data class UpdateApiKey(val provider: AIProvider, val apiKey: String) : AIModelSettingsEvent()
-    data class UpdateBaseUrl(val provider: AIProvider, val baseUrl: String) : AIModelSettingsEvent()
-    data class ToggleEnabled(val provider: AIProvider) : AIModelSettingsEvent()
+    data class UpdateApiKey(val provider: AIProvider, val apiKey: String, val customIndex: Int = -1) : AIModelSettingsEvent()
+    data class UpdateBaseUrl(val provider: AIProvider, val baseUrl: String, val customIndex: Int = -1) : AIModelSettingsEvent()
+    data class ToggleEnabled(val provider: AIProvider, val customIndex: Int = -1) : AIModelSettingsEvent()
     data class TestConnection(val provider: AIProvider) : AIModelSettingsEvent()
     data object LoadConfigs : AIModelSettingsEvent()
     data class AddCustomProvider(
@@ -53,9 +53,9 @@ class AIModelSettingsViewModel @Inject constructor(
 
     fun onEvent(event: AIModelSettingsEvent) {
         when (event) {
-            is AIModelSettingsEvent.UpdateApiKey -> updateApiKey(event.provider, event.apiKey)
-            is AIModelSettingsEvent.UpdateBaseUrl -> updateBaseUrl(event.provider, event.baseUrl)
-            is AIModelSettingsEvent.ToggleEnabled -> toggleEnabled(event.provider)
+            is AIModelSettingsEvent.UpdateApiKey -> updateApiKey(event.provider, event.apiKey, event.customIndex)
+            is AIModelSettingsEvent.UpdateBaseUrl -> updateBaseUrl(event.provider, event.baseUrl, event.customIndex)
+            is AIModelSettingsEvent.ToggleEnabled -> toggleEnabled(event.provider, event.customIndex)
             is AIModelSettingsEvent.TestConnection -> testConnection(event.provider)
             AIModelSettingsEvent.LoadConfigs -> loadConfigs()
             is AIModelSettingsEvent.AddCustomProvider -> addCustomProvider(event.displayName, event.apiKey, event.baseUrl, event.modelName)
@@ -100,41 +100,77 @@ class AIModelSettingsViewModel @Inject constructor(
         }
     }
 
-    private fun updateApiKey(provider: AIProvider, apiKey: String) {
+    private fun updateApiKey(provider: AIProvider, apiKey: String, customIndex: Int) {
+        val isCustom = provider == AIProvider.CUSTOM && customIndex >= 0
         _uiState.update { state ->
-            state.copy(providerConfigs = state.providerConfigs.map {
-                if (it.provider == provider) it.copy(apiKey = apiKey) else it
+            state.copy(providerConfigs = state.providerConfigs.mapIndexed { i, config ->
+                if (isCustom && i == customIndex && config.provider == AIProvider.CUSTOM) config.copy(apiKey = apiKey)
+                else if (!isCustom && config.provider == provider) config.copy(apiKey = apiKey)
+                else config
             })
         }
         viewModelScope.launch {
-            settingsDataStore.saveProviderConfig(
-                settingsDataStore.getProviderConfig(provider).copy(apiKey = apiKey)
-            )
+            try {
+                if (isCustom) {
+                    val existing = settingsDataStore.customProviders.first()
+                    if (customIndex < existing.size) {
+                        settingsDataStore.updateCustomProvider(customIndex, existing[customIndex].copy(apiKey = apiKey))
+                    }
+                } else {
+                    settingsDataStore.saveProviderConfig(
+                        settingsDataStore.getProviderConfig(provider).copy(apiKey = apiKey)
+                    )
+                }
+            } catch (_: Exception) { }
         }
     }
 
-    private fun updateBaseUrl(provider: AIProvider, baseUrl: String) {
+    private fun updateBaseUrl(provider: AIProvider, baseUrl: String, customIndex: Int) {
+        val isCustom = provider == AIProvider.CUSTOM && customIndex >= 0
         _uiState.update { state ->
-            state.copy(providerConfigs = state.providerConfigs.map {
-                if (it.provider == provider) it.copy(baseUrl = baseUrl) else it
+            state.copy(providerConfigs = state.providerConfigs.mapIndexed { i, config ->
+                if (isCustom && i == customIndex && config.provider == AIProvider.CUSTOM) config.copy(baseUrl = baseUrl)
+                else if (!isCustom && config.provider == provider) config.copy(baseUrl = baseUrl)
+                else config
             })
         }
         viewModelScope.launch {
-            settingsDataStore.saveProviderConfig(
-                settingsDataStore.getProviderConfig(provider).copy(baseUrl = baseUrl)
-            )
+            try {
+                if (isCustom) {
+                    val existing = settingsDataStore.customProviders.first()
+                    if (customIndex < existing.size) {
+                        settingsDataStore.updateCustomProvider(customIndex, existing[customIndex].copy(baseUrl = baseUrl))
+                    }
+                } else {
+                    settingsDataStore.saveProviderConfig(
+                        settingsDataStore.getProviderConfig(provider).copy(baseUrl = baseUrl)
+                    )
+                }
+            } catch (_: Exception) { }
         }
     }
 
-    private fun toggleEnabled(provider: AIProvider) {
+    private fun toggleEnabled(provider: AIProvider, customIndex: Int) {
+        val isCustom = provider == AIProvider.CUSTOM && customIndex >= 0
         _uiState.update { state ->
-            state.copy(providerConfigs = state.providerConfigs.map {
-                if (it.provider == provider) it.copy(isEnabled = !it.isEnabled) else it
+            state.copy(providerConfigs = state.providerConfigs.mapIndexed { i, config ->
+                if (isCustom && i == customIndex && config.provider == AIProvider.CUSTOM) config.copy(isEnabled = !config.isEnabled)
+                else if (!isCustom && config.provider == provider) config.copy(isEnabled = !config.isEnabled)
+                else config
             })
         }
         viewModelScope.launch {
-            val current = settingsDataStore.getProviderConfig(provider)
-            settingsDataStore.saveProviderConfig(current.copy(isEnabled = !current.isEnabled))
+            try {
+                if (isCustom) {
+                    val existing = settingsDataStore.customProviders.first()
+                    if (customIndex < existing.size) {
+                        settingsDataStore.updateCustomProvider(customIndex, existing[customIndex].copy(isEnabled = !existing[customIndex].isEnabled))
+                    }
+                } else {
+                    val current = settingsDataStore.getProviderConfig(provider)
+                    settingsDataStore.saveProviderConfig(current.copy(isEnabled = !current.isEnabled))
+                }
+            } catch (_: Exception) { }
         }
     }
 

@@ -119,15 +119,16 @@ fun AIModelSettingsScreen(
                 items = uiState.providerConfigs,
                 key = { _, config -> if (config.provider == AIProvider.CUSTOM) config.hashCode().toString() else config.provider.name }
             ) { index, config ->
+                val customIdx = if (config.provider == AIProvider.CUSTOM)
+                    uiState.providerConfigs.take(index + 1).count { it.provider == AIProvider.CUSTOM } - 1
+                else -1
                 ExpandableModelCard(
                     config = config,
-                    customIndex = if (config.provider == AIProvider.CUSTOM)
-                        uiState.providerConfigs.take(index + 1).count { it.provider == AIProvider.CUSTOM } - 1
-                    else -1,
+                    customIndex = customIdx,
                     testResult = if (config.provider != AIProvider.CUSTOM) uiState.testResults[config.provider] else null,
-                    onApiKeyChange = { viewModel.onEvent(AIModelSettingsEvent.UpdateApiKey(config.provider, it)) },
-                    onBaseUrlChange = { viewModel.onEvent(AIModelSettingsEvent.UpdateBaseUrl(config.provider, it)) },
-                    onToggleEnabled = { viewModel.onEvent(AIModelSettingsEvent.ToggleEnabled(config.provider)) },
+                    onApiKeyChange = { viewModel.onEvent(AIModelSettingsEvent.UpdateApiKey(config.provider, it, customIdx)) },
+                    onBaseUrlChange = { viewModel.onEvent(AIModelSettingsEvent.UpdateBaseUrl(config.provider, it, customIdx)) },
+                    onToggleEnabled = { viewModel.onEvent(AIModelSettingsEvent.ToggleEnabled(config.provider, customIdx)) },
                     onTestConnection = { viewModel.onEvent(AIModelSettingsEvent.TestConnection(config.provider)) },
                     onDelete = if (config.provider == AIProvider.CUSTOM) ({
                         viewModel.onEvent(AIModelSettingsEvent.DeleteCustomProvider(
@@ -207,7 +208,7 @@ private fun ExpandableModelCard(
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val initial = remember(config) { displayName.first().uppercase() }
+                val initial = remember(config) { displayName.firstOrNull()?.uppercase() ?: "?" }
                 val iconTint = when {
                     config.provider == AIProvider.CUSTOM -> Color(0xFF808080)
                     config.provider == AIProvider.DEEPSEEK -> Color(0xFF4D6BFE)
