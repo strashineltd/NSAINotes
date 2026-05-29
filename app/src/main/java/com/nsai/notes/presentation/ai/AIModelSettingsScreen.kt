@@ -10,8 +10,11 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -189,6 +192,7 @@ fun AIModelSettingsScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ExpandableModelCard(
     config: AIProviderConfig,
@@ -320,7 +324,24 @@ private fun ExpandableModelCard(
                         enabled = config.isEnabled,
                         shape = RoundedCornerShape(12.dp),
                         trailingIcon = {
-                            Row {
+                            val longPressInteraction = remember { MutableInteractionSource() }
+                            Row(
+                                modifier = Modifier.combinedClickable(
+                                    onClick = {},
+                                    onLongClick = {
+                                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                                        val text = clipboard?.primaryClip?.getItemAt(0)?.text?.toString()
+                                            ?: com.nsai.notes.data.local.ClipboardKeyHolder.pendingKey
+                                        if (!text.isNullOrBlank()) {
+                                            onApiKeyChange(text)
+                                            com.nsai.notes.data.local.ClipboardKeyHolder.pendingKey = null
+                                            Toast.makeText(context, "已粘贴", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    interactionSource = longPressInteraction,
+                                    indication = null
+                                )
+                            ) {
                                 if (onClearApiKey != null && config.apiKey.isNotEmpty()) {
                                     IconButton(onClick = { showClearConfirm = true }) {
                                         Icon(Icons.Default.Delete, "删除密钥", tint = MaterialTheme.colorScheme.error)
