@@ -7,5 +7,7 @@ data class AIProviderConfig(
     val provider: AIProvider,
     val apiKey: String = "",
     val baseUrl: String = provider.defaultBaseUrl,
-    val isEnabled: Boolean = false
+    val isEnabled: Boolean = false,
+    val customModelName: String? = null,
+    val customDisplayName: String? = null
 )

@@ -19,9 +19,9 @@ enum class AIProvider(
     val supportsVision: Boolean = false
 ) {
     DEEPSEEK(
-        displayName = "DeepSeek-v4-Pro",
+        displayName = "DeepSeek",
         defaultBaseUrl = "https://api.deepseek.com/v1",
-        quickModel = "deepseek-v4-pro",
+        quickModel = "deepseek-v4-flash",
         thinkModel = "deepseek-v4-pro",
         imageModel = null,
         supportsVision = true
@@ -42,18 +42,18 @@ enum class AIProvider(
         supportsVision = true
     ),
     MINIMAX(
-        displayName = "MiniMax 2.7",
+        displayName = "MiniMax",
         defaultBaseUrl = "https://api.minimax.chat/v1",
-        quickModel = "minimax-text-01",
-        thinkModel = "minimax-text-01",
+        quickModel = "minimax-m2.7",
+        thinkModel = "minimax-m2.7",
         imageModel = "image-01"
     ),
     QWEN(
-        displayName = "Qwen3.6Max",
+        displayName = "Qwen",
         defaultBaseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        quickModel = "qwen3.6-max",
-        thinkModel = "qwen3.6-max",
-        imageModel = "qwen3.6-max",
+        quickModel = "qwen3.7-max",
+        thinkModel = "qwen3.7-max",
+        imageModel = "qwen3.7-max",
         supportsVision = true
     ),
     MIMO(
@@ -63,6 +63,13 @@ enum class AIProvider(
         thinkModel = "mimo-2.5-pro",
         imageModel = null,
         supportsVision = false
+    ),
+    CUSTOM(
+        displayName = "自定义模型",
+        defaultBaseUrl = "",
+        quickModel = "",
+        thinkModel = "",
+        imageModel = null
     );
 
     fun getModelForMode(mode: AIMode): String? = when (mode) {

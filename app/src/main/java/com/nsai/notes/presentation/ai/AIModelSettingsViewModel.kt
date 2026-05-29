@@ -11,6 +11,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -28,6 +29,11 @@ sealed class AIModelSettingsEvent {
     data class ToggleEnabled(val provider: AIProvider) : AIModelSettingsEvent()
     data class TestConnection(val provider: AIProvider) : AIModelSettingsEvent()
     data object LoadConfigs : AIModelSettingsEvent()
+    data class AddCustomProvider(
+        val displayName: String, val apiKey: String, val baseUrl: String, val modelName: String
+    ) : AIModelSettingsEvent()
+    data class UpdateCustomProvider(val index: Int, val config: AIProviderConfig) : AIModelSettingsEvent()
+    data class DeleteCustomProvider(val index: Int) : AIModelSettingsEvent()
 }
 
 @HiltViewModel
@@ -52,18 +58,45 @@ class AIModelSettingsViewModel @Inject constructor(
             is AIModelSettingsEvent.ToggleEnabled -> toggleEnabled(event.provider)
             is AIModelSettingsEvent.TestConnection -> testConnection(event.provider)
             AIModelSettingsEvent.LoadConfigs -> loadConfigs()
+            is AIModelSettingsEvent.AddCustomProvider -> addCustomProvider(event.displayName, event.apiKey, event.baseUrl, event.modelName)
+            is AIModelSettingsEvent.UpdateCustomProvider -> updateCustom(event.index, event.config)
+            is AIModelSettingsEvent.DeleteCustomProvider -> deleteCustom(event.index)
+        }
+    }
+
+    private fun addCustomProvider(displayName: String, apiKey: String, baseUrl: String, modelName: String) {
+        viewModelScope.launch {
+            val config = AIProviderConfig(
+                provider = AIProvider.CUSTOM,
+                apiKey = apiKey,
+                baseUrl = baseUrl,
+                isEnabled = true,
+                customModelName = modelName,
+                customDisplayName = displayName
+            )
+            settingsDataStore.addCustomProvider(config)
+        }
+    }
+
+    private fun updateCustom(index: Int, config: AIProviderConfig) {
+        viewModelScope.launch {
+            settingsDataStore.updateCustomProvider(index, config)
+        }
+    }
+
+    private fun deleteCustom(index: Int) {
+        viewModelScope.launch {
+            settingsDataStore.deleteCustomProvider(index)
         }
     }
 
     private fun loadConfigs() {
         viewModelScope.launch {
             try {
-                _uiState.value = _uiState.value.copy(
-                    providerConfigs = settingsDataStore.getAllProviderConfigs().first()
-                )
-            } catch (_: Exception) {
-                // DataStore reads are stable; ignore transient failures
-            }
+                settingsDataStore.getAllProviderConfigs().collectLatest { configs ->
+                    _uiState.value = _uiState.value.copy(providerConfigs = configs)
+                }
+            } catch (_: Exception) { }
         }
     }
 

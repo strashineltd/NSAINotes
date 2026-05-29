@@ -7,6 +7,7 @@ import com.nsai.notes.data.remote.ai.GLMAdapter
 import com.nsai.notes.data.remote.ai.KimiAdapter
 import com.nsai.notes.data.remote.ai.MiMoAdapter
 import com.nsai.notes.data.remote.ai.MiniMaxAdapter
+import com.nsai.notes.data.remote.ai.CustomAIAdapter
 import com.nsai.notes.data.remote.ai.QwenAdapter
 import dagger.Binds
 import dagger.Module
@@ -48,4 +49,9 @@ abstract class AIModule {
     @IntoSet
     @Singleton
     abstract fun bindMiMoAdapter(adapter: MiMoAdapter): AIProviderAdapter
+
+    @Binds
+    @IntoSet
+    @Singleton
+    abstract fun bindCustomAIAdapter(adapter: CustomAIAdapter): AIProviderAdapter
 }

@@ -117,8 +117,9 @@ class NoteListViewModel @Inject constructor(
     private fun loadTags() {
         viewModelScope.launch {
             try {
-                val tags = noteRepository.getAllTags()
-                _uiState.value = _uiState.value.copy(allTags = tags)
+                noteRepository.getAllTags().collect { tags ->
+                    _uiState.value = _uiState.value.copy(allTags = tags)
+                }
             } catch (_: Exception) { }
         }
     }

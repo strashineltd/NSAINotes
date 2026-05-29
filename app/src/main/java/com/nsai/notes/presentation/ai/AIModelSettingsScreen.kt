@@ -28,10 +28,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.TravelExplore
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -73,6 +76,7 @@ fun AIModelSettingsScreen(
 ) {
     val viewModel: AIModelSettingsViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
+    var showAddDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.load()
@@ -113,35 +117,76 @@ fun AIModelSettingsScreen(
 
             itemsIndexed(
                 items = uiState.providerConfigs,
-                key = { _, config -> config.provider.name }
+                key = { _, config -> if (config.provider == AIProvider.CUSTOM) config.hashCode().toString() else config.provider.name }
             ) { index, config ->
                 ExpandableModelCard(
                     config = config,
-                    testResult = uiState.testResults[config.provider],
+                    customIndex = if (config.provider == AIProvider.CUSTOM)
+                        uiState.providerConfigs.take(index + 1).count { it.provider == AIProvider.CUSTOM } - 1
+                    else -1,
+                    testResult = if (config.provider != AIProvider.CUSTOM) uiState.testResults[config.provider] else null,
                     onApiKeyChange = { viewModel.onEvent(AIModelSettingsEvent.UpdateApiKey(config.provider, it)) },
                     onBaseUrlChange = { viewModel.onEvent(AIModelSettingsEvent.UpdateBaseUrl(config.provider, it)) },
                     onToggleEnabled = { viewModel.onEvent(AIModelSettingsEvent.ToggleEnabled(config.provider)) },
-                    onTestConnection = { viewModel.onEvent(AIModelSettingsEvent.TestConnection(config.provider)) }
+                    onTestConnection = { viewModel.onEvent(AIModelSettingsEvent.TestConnection(config.provider)) },
+                    onDelete = if (config.provider == AIProvider.CUSTOM) ({
+                        viewModel.onEvent(AIModelSettingsEvent.DeleteCustomProvider(
+                            uiState.providerConfigs.take(index + 1).count { it.provider == AIProvider.CUSTOM } - 1
+                        ))
+                    }) else null
                 )
+            }
+
+            item(key = "add_custom") {
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable { showAddDialog = true },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("添加自定义模型", style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary)
+                    }
+                }
             }
 
             item(key = "browser_info") { BrowserInfoCard() }
             item(key = "bottom_spacer") { Spacer(Modifier.height(16.dp)) }
         }
     }
+
+    if (showAddDialog) {
+        AddCustomProviderDialog(
+            onDismiss = { showAddDialog = false },
+            onAdd = { name, key, url, model ->
+                viewModel.onEvent(AIModelSettingsEvent.AddCustomProvider(name, key, url, model))
+                showAddDialog = false
+            }
+        )
+    }
 }
 
 @Composable
 private fun ExpandableModelCard(
     config: AIProviderConfig,
+    customIndex: Int = -1,
     testResult: String?,
     onApiKeyChange: (String) -> Unit,
     onBaseUrlChange: (String) -> Unit,
     onToggleEnabled: () -> Unit,
-    onTestConnection: () -> Unit
+    onTestConnection: () -> Unit,
+    onDelete: (() -> Unit)? = null
 ) {
     val tokens = LocalAnimationConfig.current
     var expanded by remember { mutableStateOf(false) }
+
+    val displayName = config.customDisplayName ?: config.provider.displayName
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -155,7 +200,6 @@ private fun ExpandableModelCard(
         else androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Header row — always visible
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -163,15 +207,16 @@ private fun ExpandableModelCard(
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Provider initial icon — use theme color for icon, surface container for background
-                val initial = remember(config.provider) { config.provider.displayName.first().uppercase() }
-                val iconTint = when (config.provider) {
-                    AIProvider.DEEPSEEK -> Color(0xFF4D6BFE)
-                    AIProvider.KIMI -> Color(0xFF6B4CFF)
-                    AIProvider.GLM -> Color(0xFF10A37F)
-                    AIProvider.MINIMAX -> Color(0xFFE91E63)
-                    AIProvider.QWEN -> Color(0xFF0070F3)
-                    AIProvider.MIMO -> Color(0xFFFF6900)
+                val initial = remember(config) { displayName.first().uppercase() }
+                val iconTint = when {
+                    config.provider == AIProvider.CUSTOM -> Color(0xFF808080)
+                    config.provider == AIProvider.DEEPSEEK -> Color(0xFF4D6BFE)
+                    config.provider == AIProvider.KIMI -> Color(0xFF6B4CFF)
+                    config.provider == AIProvider.GLM -> Color(0xFF10A37F)
+                    config.provider == AIProvider.MINIMAX -> Color(0xFFE91E63)
+                    config.provider == AIProvider.QWEN -> Color(0xFF0070F3)
+                    config.provider == AIProvider.MIMO -> Color(0xFFFF6900)
+                    else -> Color(0xFF808080)
                 }
                 Box(
                     Modifier.size(40.dp).clip(CircleShape)
@@ -189,7 +234,7 @@ private fun ExpandableModelCard(
 
                 Column(Modifier.weight(1f)) {
                     Text(
-                        config.provider.displayName,
+                        displayName,
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(
                             alpha = if (config.isEnabled) 1f else 0.6f
@@ -210,13 +255,18 @@ private fun ExpandableModelCard(
                     }
                 }
 
+                if (onDelete != null) {
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Default.Delete, "删除", tint = MaterialTheme.colorScheme.error)
+                    }
+                }
+
                 Switch(
                     checked = config.isEnabled,
                     onCheckedChange = { onToggleEnabled() }
                 )
             }
 
-            // Expandable section
             AnimatedVisibility(
                 visible = expanded,
                 enter = expandVertically(tween(tokens.fastDuration)) + fadeIn(tween(tokens.fastDuration)),
@@ -224,6 +274,20 @@ private fun ExpandableModelCard(
             ) {
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                     Spacer(Modifier.height(4.dp))
+
+                    if (config.provider == AIProvider.CUSTOM) {
+                        OutlinedTextField(
+                            value = config.customModelName ?: "",
+                            onValueChange = { /* handled by parent */ },
+                            label = { Text("模型名称") },
+                            placeholder = { Text("gpt-4o-mini") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            enabled = config.isEnabled,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                    }
 
                     OutlinedTextField(
                         value = config.apiKey,
@@ -252,17 +316,17 @@ private fun ExpandableModelCard(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Button(
-                            onClick = onTestConnection,
-                            enabled = config.isEnabled && config.apiKey.isNotBlank(),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.secondary
-                            )
-                        ) {
-                            Icon(Icons.Default.NetworkCheck, null, Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("测试连接")
+                        if (config.provider != AIProvider.CUSTOM) {
+                            Button(
+                                onClick = onTestConnection,
+                                enabled = config.isEnabled && config.apiKey.isNotBlank(),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                            ) {
+                                Icon(Icons.Default.NetworkCheck, null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("测试连接")
+                            }
                         }
 
                         testResult?.let { result ->
@@ -323,6 +387,45 @@ private fun StaggeredCardItem(
             onTestConnection = onTestConnection
         )
     }
+}
+
+@Composable
+private fun AddCustomProviderDialog(
+    onDismiss: () -> Unit,
+    onAdd: (displayName: String, apiKey: String, baseUrl: String, modelName: String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var key by remember { mutableStateOf("") }
+    var url by remember { mutableStateOf("") }
+    var model by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("添加自定义模型") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = name, onValueChange = { name = it },
+                    label = { Text("显示名称") }, placeholder = { Text("我的模型") },
+                    singleLine = true, shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(value = model, onValueChange = { model = it },
+                    label = { Text("模型名称") }, placeholder = { Text("gpt-4o-mini") },
+                    singleLine = true, shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(value = url, onValueChange = { url = it },
+                    label = { Text("Base URL") }, placeholder = { Text("https://api.openai.com/v1") },
+                    singleLine = true, shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(value = key, onValueChange = { key = it },
+                    label = { Text("API Key") }, placeholder = { Text("sk-...") },
+                    singleLine = true, shape = RoundedCornerShape(12.dp))
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onAdd(name, key, url, model) },
+                enabled = name.isNotBlank() && model.isNotBlank() && url.isNotBlank()) {
+                Text("添加")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+    )
 }
 
 @Composable

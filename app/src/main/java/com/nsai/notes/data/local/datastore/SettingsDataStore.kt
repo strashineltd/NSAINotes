@@ -173,7 +173,7 @@ class SettingsDataStore @Inject constructor(
 
     fun getAllProviderConfigs(): Flow<List<AIProviderConfig>> {
         return dataStore.data.map { prefs ->
-            AIProvider.entries.map { provider ->
+            val builtIn = AIProvider.entries.filter { it != AIProvider.CUSTOM }.map { provider ->
                 val key = provider.name
                 val hasKey = !prefs[Keys.apiKeyKey(key)].isNullOrEmpty()
                 AIProviderConfig(
@@ -183,11 +183,88 @@ class SettingsDataStore @Inject constructor(
                     isEnabled = prefs[Keys.enabledKey(key)] == "true"
                 )
             }
+            val json = prefs[CUSTOM_PROVIDERS] ?: ""
+            val customList = if (json.isNotBlank()) {
+                try {
+                    val list = gson.fromJson(json, Array<CustomProviderData>::class.java).toList()
+                    list.map { it.toConfig() }
+                } catch (_: Exception) { emptyList() }
+            } else emptyList()
+            builtIn + customList
         }
     }
 
     companion object {
         const val PLACEHOLDER_API_KEY = "••••••••"
+        private const val MAX_CUSTOM_PROVIDERS = 5
+    }
+
+    // --- Custom AI Providers ---
+    private val CUSTOM_PROVIDERS = stringPreferencesKey("custom_ai_providers_json")
+
+    val customProviders: Flow<List<AIProviderConfig>> = dataStore.data.map { prefs ->
+        val json = prefs[CUSTOM_PROVIDERS] ?: return@map emptyList()
+        try {
+            val list = gson.fromJson(json, Array<CustomProviderData>::class.java).toList()
+            list.map { it.toConfig() }
+        } catch (_: Exception) { emptyList() }
+    }
+
+    suspend fun saveCustomProviders(providers: List<AIProviderConfig>) {
+        dataStore.edit { prefs ->
+            prefs[CUSTOM_PROVIDERS] = gson.toJson(providers.map { CustomProviderData.from(it) })
+        }
+    }
+
+    suspend fun addCustomProvider(config: AIProviderConfig): Boolean = mutex.withLock {
+        val list = customProviders.first().toMutableList()
+        if (list.size >= MAX_CUSTOM_PROVIDERS) return@withLock false
+        list.add(config)
+        saveCustomProviders(list)
+        true
+    }
+
+    suspend fun updateCustomProvider(index: Int, config: AIProviderConfig) = mutex.withLock {
+        val list = customProviders.first().toMutableList()
+        if (index in list.indices) {
+            list[index] = config
+            saveCustomProviders(list)
+        }
+    }
+
+    suspend fun deleteCustomProvider(index: Int) = mutex.withLock {
+        val list = customProviders.first().toMutableList()
+        if (index in list.indices) {
+            list.removeAt(index)
+            saveCustomProviders(list)
+        }
+    }
+
+    private data class CustomProviderData(
+        val displayName: String = "",
+        val apiKey: String = "",
+        val baseUrl: String = "",
+        val modelName: String = "",
+        val isEnabled: Boolean = false
+    ) {
+        fun toConfig() = AIProviderConfig(
+            provider = AIProvider.CUSTOM,
+            apiKey = apiKey,
+            baseUrl = baseUrl,
+            isEnabled = isEnabled,
+            customModelName = modelName,
+            customDisplayName = displayName
+        )
+
+        companion object {
+            fun from(config: AIProviderConfig) = CustomProviderData(
+                displayName = config.customDisplayName ?: "自定义模型",
+                apiKey = config.apiKey,
+                baseUrl = config.baseUrl,
+                modelName = config.customModelName ?: "",
+                isEnabled = config.isEnabled
+            )
+        }
     }
 
     val themeMode: Flow<Int> = dataStore.data.map { prefs -> prefs[Keys.THEME_MODE] ?: 0 }

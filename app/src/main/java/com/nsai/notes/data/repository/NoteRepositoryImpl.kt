@@ -10,7 +10,6 @@ import com.nsai.notes.domain.model.Note
 import com.nsai.notes.domain.model.Tag
 import com.nsai.notes.domain.repository.NoteRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -117,8 +116,8 @@ class NoteRepositoryImpl @Inject constructor(
         return tagDao.insertTag(entity)
     }
 
-    override suspend fun getAllTags(): List<Tag> {
-        return tagDao.getAllTags().first().map { tagMapper.toDomain(it) }
+    override fun getAllTags(): Flow<List<Tag>> {
+        return tagDao.getAllTags().map { entities -> entities.map { tagMapper.toDomain(it) } }
     }
 
     override suspend fun deleteTag(tagId: Long) {

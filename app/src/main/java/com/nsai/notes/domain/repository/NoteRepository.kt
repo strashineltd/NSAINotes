@@ -19,7 +19,7 @@ interface NoteRepository {
     suspend fun renameNote(noteId: Long, title: String)
 
     suspend fun createTag(tag: Tag): Long
-    suspend fun getAllTags(): List<Tag>
+    fun getAllTags(): Flow<List<Tag>>
     suspend fun deleteTag(tagId: Long)
     suspend fun addTagToNote(noteId: Long, tagId: Long)
     suspend fun removeTagFromNote(noteId: Long, tagId: Long)

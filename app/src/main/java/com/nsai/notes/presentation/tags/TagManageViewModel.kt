@@ -56,8 +56,9 @@ class TagManageViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             try {
-                val tags = getAllTagsUseCase()
-                _uiState.value = _uiState.value.copy(tags = tags, isLoading = false)
+                getAllTagsUseCase().collect { tags ->
+                    _uiState.value = _uiState.value.copy(tags = tags, isLoading = false)
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,

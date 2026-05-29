@@ -79,7 +79,9 @@ abstract class BaseAIAdapter(
             if (!config.isEnabled) throw AIException("${provider.displayName}已禁用", AIExceptionType.AUTH)
             if (config.apiKey.isBlank()) throw AIException("API Key未配置", AIExceptionType.AUTH)
 
-            val model = provider.getModelForMode(mode) ?: provider.quickModel
+            val model = config.customModelName?.takeIf { it.isNotBlank() }
+                ?: provider.getModelForMode(mode)
+                ?: provider.quickModel
             val temp = if (mode == AIMode.THINK) 0.1f else options.temperature
 
             val body = ChatRequestBody(

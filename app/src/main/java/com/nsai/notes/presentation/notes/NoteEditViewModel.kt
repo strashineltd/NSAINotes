@@ -168,8 +168,9 @@ class NoteEditViewModel @Inject constructor(
     private fun loadTags() {
         viewModelScope.launch {
             try {
-                val tags = getAllTagsUseCase()
-                _uiState.value = _uiState.value.copy(tags = tags)
+                getAllTagsUseCase().collect { tags ->
+                    _uiState.value = _uiState.value.copy(tags = tags)
+                }
             } catch (e: Exception) { Log.w("NoteEditVM", "Failed to load tags", e) }
         }
     }
