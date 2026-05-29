@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -143,9 +142,8 @@ class AIModelSettingsViewModel @Inject constructor(
     private fun loadConfigs() {
         viewModelScope.launch {
             try {
-                settingsDataStore.getAllProviderConfigs().collectLatest { configs ->
-                    _uiState.value = _uiState.value.copy(providerConfigs = configs)
-                }
+                val configs = settingsDataStore.getAllProviderConfigs().first()
+                _uiState.value = _uiState.value.copy(providerConfigs = configs)
             } catch (_: Exception) { }
         }
     }
