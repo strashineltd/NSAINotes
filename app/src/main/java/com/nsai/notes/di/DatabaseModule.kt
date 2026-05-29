@@ -8,6 +8,7 @@ import com.nsai.notes.data.local.db.MIGRATION_2_3
 import com.nsai.notes.data.local.db.MIGRATION_3_4
 import com.nsai.notes.data.local.db.MIGRATION_4_5
 import com.nsai.notes.data.local.db.MIGRATION_5_6
+import com.nsai.notes.data.local.db.MIGRATION_6_7
 import com.nsai.notes.data.local.db.dao.ConversationDao
 import com.nsai.notes.data.local.db.dao.ChunkDao
 import com.nsai.notes.data.local.db.dao.NoteDao
@@ -33,7 +34,8 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             "nsai_notes.db"
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+            .fallbackToDestructiveMigration()
             .build()
     }
 

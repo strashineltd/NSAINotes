@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Folder
@@ -60,7 +61,7 @@ import com.nsai.notes.presentation.tags.TagManageScreen
 import com.nsai.notes.presentation.theme.LocalAnimationConfig
 import com.nsai.notes.presentation.theme.StandardEasing
 
-private val tabRoutes = setOf(Screen.NoteList.route, Screen.Files.route, Screen.AIHome.route)
+private val tabRoutes = setOf(Screen.NoteList.route, Screen.Files.route, Screen.AIHome.route, Screen.Tags.route)
 
 @Composable
 fun NSAINavGraph(
@@ -74,7 +75,8 @@ fun NSAINavGraph(
     val showBottomBar = currentRoute in listOf(
         Screen.NoteList.route,
         Screen.Files.route,
-        Screen.AIHome.route
+        Screen.AIHome.route,
+        Screen.Tags.route
     )
 
     // Double-back to exit — only on root tab screens
@@ -133,6 +135,7 @@ fun NSAINavGraph(
                             BottomNavItem.NOTES -> Icons.Default.EditNote
                             BottomNavItem.FILES -> Icons.Default.Folder
                             BottomNavItem.AI -> Icons.Default.AutoAwesome
+                            BottomNavItem.TAGS -> Icons.AutoMirrored.Filled.Label
                         }
                         val selected = currentRoute == item.route
                         NavigationBarItem(

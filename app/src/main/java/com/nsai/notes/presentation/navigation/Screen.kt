@@ -22,5 +22,6 @@ sealed class Screen(val route: String) {
 enum class BottomNavItem(val label: String, val route: String) {
     NOTES("笔记", Screen.NoteList.route),
     AI("AI", Screen.AIHome.route),
-    FILES("文件", Screen.Files.route)
+    FILES("文件", Screen.Files.route),
+    TAGS("标签", Screen.Tags.route)
 }

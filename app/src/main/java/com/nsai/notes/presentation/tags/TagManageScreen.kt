@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.nsai.notes.presentation.common.ErrorView
 import com.nsai.notes.presentation.theme.LocalAnimationConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,6 +74,13 @@ fun TagManageScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            if (uiState.error != null) {
+                ErrorView(
+                    message = uiState.error ?: "",
+                    onRetry = { viewModel.onEvent(TagManageEvent.LoadTags) }
+                )
+            }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
