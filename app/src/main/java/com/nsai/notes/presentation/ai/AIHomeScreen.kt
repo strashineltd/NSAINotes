@@ -1,8 +1,8 @@
 package com.nsai.notes.presentation.ai
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
@@ -76,13 +76,32 @@ fun AIHomeScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        bottomBar = {
+            FlowInputBar(
+                text = uiState.inputText,
+                onTextChange = { viewModel.onEvent(AIHomeEvent.UpdateInput(it)) },
+                onSend = {
+                    if (!uiState.isLoading) {
+                        viewModel.onEvent(AIHomeEvent.SendMessage)
+                    }
+                },
+                isLoading = uiState.isLoading,
+                placeholder = when (selectedTab) {
+                    FlowTab.AGENT -> "描述你要执行的任务..."
+                    FlowTab.RAG -> "搜索笔记..."
+                    else -> "输入问题..."
+                },
+                isWebSearchEnabled = uiState.isWebSearchMode,
+                onToggleWebSearch = { viewModel.onEvent(AIHomeEvent.ToggleWebSearch) }
+            )
+        }
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .imePadding()
         ) {
             FlowTopBar(
                 selectedTab = selectedTab,
@@ -125,24 +144,6 @@ fun AIHomeScreen(
                     viewModel.onEvent(AIHomeEvent.SendMessage)
                 },
                 modifier = Modifier.weight(1f)
-            )
-
-            FlowInputBar(
-                text = uiState.inputText,
-                onTextChange = { viewModel.onEvent(AIHomeEvent.UpdateInput(it)) },
-                onSend = {
-                    if (!uiState.isLoading) {
-                        viewModel.onEvent(AIHomeEvent.SendMessage)
-                    }
-                },
-                isLoading = uiState.isLoading,
-                placeholder = when (selectedTab) {
-                    FlowTab.AGENT -> "描述你要执行的任务..."
-                    FlowTab.RAG -> "搜索笔记..."
-                    else -> "输入问题..."
-                },
-                isWebSearchEnabled = uiState.isWebSearchMode,
-                onToggleWebSearch = { viewModel.onEvent(AIHomeEvent.ToggleWebSearch) }
             )
         }
     }

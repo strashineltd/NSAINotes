@@ -85,6 +85,7 @@ class NoteEditViewModel @Inject constructor(
             val newId = createNoteUseCase(
                 title = state.title.ifBlank { "无标题" },
                 content = state.content.ifBlank { "无内容" },
+                tags = state.selectedTags,
                 isPrivate = state.isPrivate
             ).getOrNull() ?: return null
             currentNoteId = newId
@@ -235,6 +236,7 @@ class NoteEditViewModel @Inject constructor(
                     val newId = createNoteUseCase(
                         title = state.title,
                         content = state.content,
+                        tags = state.selectedTags,
                         isPrivate = state.isPrivate
                     ).getOrThrow()
                     currentNoteId = newId

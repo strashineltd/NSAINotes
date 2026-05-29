@@ -1,6 +1,7 @@
 package com.nsai.notes.domain.usecase.note
 
 import com.nsai.notes.domain.model.Note
+import com.nsai.notes.domain.model.Tag
 import com.nsai.notes.domain.repository.NoteRepository
 import javax.inject.Inject
 
@@ -10,7 +11,7 @@ class CreateNoteUseCase @Inject constructor(
     suspend operator fun invoke(
         title: String,
         content: String,
-        tags: List<Long> = emptyList(),
+        tags: List<Tag> = emptyList(),
         isPrivate: Boolean = false
     ): Result<Long> {
         return runCatching {
@@ -20,6 +21,7 @@ class CreateNoteUseCase @Inject constructor(
             val note = Note(
                 title = title.trim(),
                 content = content.trim(),
+                tags = tags,
                 isPrivate = isPrivate
             )
             repository.createNote(note)

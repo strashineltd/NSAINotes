@@ -207,8 +207,6 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.primary)
                         Text("问题反馈与技术支持请通过 GitHub Issues 提交。",
                             style = MaterialTheme.typography.bodySmall)
-                        Text("本应用为开源项目，完整源码可在 GitHub 查阅验证。",
-                            style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.height(12.dp))
                     }
                 },
@@ -428,12 +426,12 @@ fun SettingsScreen(
                         QrCodeColumn(
                             painterResource(R.drawable.wechat_qr),
                             "微信收款",
-                            onClick = { expandedQr = QrViewerState(R.drawable.wechat_qr, "微信收款码") }
+                            onClick = { showDonateDialog = false; expandedQr = QrViewerState(R.drawable.wechat_qr, "微信收款码") }
                         )
                         QrCodeColumn(
                             painterResource(R.drawable.alipay_qr),
                             "支付宝收款",
-                            onClick = { expandedQr = QrViewerState(R.drawable.alipay_qr, "支付宝收款码") }
+                            onClick = { showDonateDialog = false; expandedQr = QrViewerState(R.drawable.alipay_qr, "支付宝收款码") }
                         )
                     }
                 }
