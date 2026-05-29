@@ -134,7 +134,8 @@ fun AIModelSettingsScreen(
                         viewModel.onEvent(AIModelSettingsEvent.DeleteCustomProvider(
                             uiState.providerConfigs.take(index + 1).count { it.provider == AIProvider.CUSTOM } - 1
                         ))
-                    }) else null
+                    }) else null,
+                    onClearApiKey = { viewModel.onEvent(AIModelSettingsEvent.ClearApiKey(config.provider, customIdx)) }
                 )
             }
 
@@ -182,10 +183,12 @@ private fun ExpandableModelCard(
     onBaseUrlChange: (String) -> Unit,
     onToggleEnabled: () -> Unit,
     onTestConnection: () -> Unit,
-    onDelete: (() -> Unit)? = null
+    onDelete: (() -> Unit)? = null,
+    onClearApiKey: (() -> Unit)? = null
 ) {
     val tokens = LocalAnimationConfig.current
     var expanded by remember { mutableStateOf(false) }
+    var showClearConfirm by remember { mutableStateOf(false) }
 
     val displayName = config.customDisplayName ?: config.provider.displayName
 
@@ -298,7 +301,12 @@ private fun ExpandableModelCard(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         enabled = config.isEnabled,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        trailingIcon = if (onClearApiKey != null && config.apiKey.isNotEmpty()) {
+                            { IconButton(onClick = { showClearConfirm = true }) {
+                                Icon(Icons.Default.Delete, "删除密钥", tint = MaterialTheme.colorScheme.error)
+                            } }
+                        } else null
                     )
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
@@ -350,6 +358,23 @@ private fun ExpandableModelCard(
                                 }
                             }
                         }
+                    }
+
+                    if (showClearConfirm && onClearApiKey != null) {
+                        AlertDialog(
+                            onDismissRequest = { showClearConfirm = false },
+                            title = { Text("删除密钥") },
+                            text = { Text("确定删除此模型的 API Key 吗？") },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    showClearConfirm = false
+                                    onClearApiKey()
+                                }) { Text("确定", color = MaterialTheme.colorScheme.error) }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showClearConfirm = false }) { Text("取消") }
+                            }
+                        )
                     }
                 }
             }

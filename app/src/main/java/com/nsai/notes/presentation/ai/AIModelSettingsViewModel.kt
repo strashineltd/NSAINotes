@@ -34,6 +34,7 @@ sealed class AIModelSettingsEvent {
     ) : AIModelSettingsEvent()
     data class UpdateCustomProvider(val index: Int, val config: AIProviderConfig) : AIModelSettingsEvent()
     data class DeleteCustomProvider(val index: Int) : AIModelSettingsEvent()
+    data class ClearApiKey(val provider: AIProvider, val customIndex: Int = -1) : AIModelSettingsEvent()
 }
 
 @HiltViewModel
@@ -61,6 +62,7 @@ class AIModelSettingsViewModel @Inject constructor(
             is AIModelSettingsEvent.AddCustomProvider -> addCustomProvider(event.displayName, event.apiKey, event.baseUrl, event.modelName)
             is AIModelSettingsEvent.UpdateCustomProvider -> updateCustom(event.index, event.config)
             is AIModelSettingsEvent.DeleteCustomProvider -> deleteCustom(event.index)
+            is AIModelSettingsEvent.ClearApiKey -> clearApiKey(event.provider, event.customIndex)
         }
     }
 
@@ -87,6 +89,31 @@ class AIModelSettingsViewModel @Inject constructor(
     private fun deleteCustom(index: Int) {
         viewModelScope.launch {
             settingsDataStore.deleteCustomProvider(index)
+        }
+    }
+
+    private fun clearApiKey(provider: AIProvider, customIndex: Int) {
+        val isCustom = provider == AIProvider.CUSTOM && customIndex >= 0
+        _uiState.update { state ->
+            state.copy(providerConfigs = state.providerConfigs.mapIndexed { i, config ->
+                if (isCustom && i == customIndex && config.provider == AIProvider.CUSTOM) config.copy(apiKey = "")
+                else if (!isCustom && config.provider == provider) config.copy(apiKey = "")
+                else config
+            })
+        }
+        viewModelScope.launch {
+            try {
+                if (isCustom) {
+                    val existing = settingsDataStore.customProviders.first()
+                    if (customIndex < existing.size) {
+                        settingsDataStore.updateCustomProvider(customIndex, existing[customIndex].copy(apiKey = ""))
+                    }
+                } else {
+                    settingsDataStore.saveProviderConfig(
+                        settingsDataStore.getProviderConfig(provider).copy(apiKey = "")
+                    )
+                }
+            } catch (_: Exception) { }
         }
     }
 
