@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -35,6 +36,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.nsai.notes.domain.model.Note
+import com.nsai.notes.domain.model.Tag
 import com.nsai.notes.presentation.theme.LocalAnimationConfig
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -46,6 +48,7 @@ fun NoteCard(
     note: Note,
     onClick: () -> Unit,
     onToggleFavorite: () -> Unit,
+    onTagClick: (Long) -> Unit = {},
     modifier: Modifier = Modifier,
     interactionSource: InteractionSource = remember { MutableInteractionSource() },
 ) {
@@ -120,7 +123,7 @@ fun NoteCard(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     note.tags.forEach { tag ->
-                        TagChip(tag.name)
+                        TagChip(tag.name, onClick = { onTagClick(tag.id) })
                     }
                 }
             }
@@ -137,11 +140,12 @@ fun NoteCard(
 }
 
 @Composable
-private fun TagChip(name: String) {
+private fun TagChip(name: String, onClick: () -> Unit = {}) {
     Card(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
+        ),
+        modifier = Modifier.clickable(onClick = onClick)
     ) {
         Text(
             text = name,

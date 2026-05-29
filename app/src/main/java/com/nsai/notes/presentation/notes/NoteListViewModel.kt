@@ -14,6 +14,7 @@ import com.nsai.notes.data.local.security.KeyStoreManager
 import com.nsai.notes.data.mapper.NoteMapper
 import com.nsai.notes.data.mapper.TagMapper
 import com.nsai.notes.domain.model.Note
+import com.nsai.notes.domain.model.Tag
 import com.nsai.notes.domain.repository.NoteRepository
 import com.nsai.notes.domain.usecase.note.GetAllNotesUseCase
 import com.nsai.notes.domain.usecase.note.SearchNotesUseCase
@@ -38,7 +39,10 @@ data class NoteListUiState(
     val error: String? = null,
     val searchQuery: String = "",
     val isSearchActive: Boolean = false,
-    val usePaging: Boolean = false
+    val usePaging: Boolean = false,
+    val allTags: List<Tag> = emptyList(),
+    val selectedTagId: Long? = null,
+    val selectedTagName: String? = null
 )
 
 sealed class NoteListEvent {
@@ -46,6 +50,8 @@ sealed class NoteListEvent {
     data class Search(val query: String) : NoteListEvent()
     data class ToggleFavorite(val noteId: Long) : NoteListEvent()
     data object ClearSearch : NoteListEvent()
+    data object LoadTags : NoteListEvent()
+    data class FilterByTag(val tagId: Long?) : NoteListEvent()
 }
 
 @HiltViewModel
@@ -71,7 +77,7 @@ class NoteListViewModel @Inject constructor(
 
     private var searchJob: Job? = null
 
-    init { loadNotes() }
+    init { loadNotes(); loadTags() }
 
     fun onEvent(event: NoteListEvent) {
         when (event) {
@@ -79,17 +85,24 @@ class NoteListViewModel @Inject constructor(
             is NoteListEvent.Search -> search(event.query)
             is NoteListEvent.ToggleFavorite -> toggleFavorite(event.noteId)
             NoteListEvent.ClearSearch -> clearSearch()
+            NoteListEvent.LoadTags -> loadTags()
+            is NoteListEvent.FilterByTag -> filterByTag(event.tagId)
         }
     }
 
     // Paging threshold: use paging when note count exceeds this
     private val PAGING_THRESHOLD = 300
 
+    private var notesJob: Job? = null
+
     private fun loadNotes() {
-        viewModelScope.launch {
+        notesJob?.cancel()
+        val tagId = _uiState.value.selectedTagId
+        notesJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                getAllNotesUseCase().collectLatest { notes ->
+                val flow = if (tagId != null) noteRepository.getNotesByTag(tagId) else getAllNotesUseCase()
+                flow.collectLatest { notes ->
                     _uiState.value = _uiState.value.copy(
                         notes = notes, isLoading = false, error = null,
                         usePaging = notes.size >= PAGING_THRESHOLD
@@ -99,6 +112,21 @@ class NoteListViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
             }
         }
+    }
+
+    private fun loadTags() {
+        viewModelScope.launch {
+            try {
+                val tags = noteRepository.getAllTags()
+                _uiState.value = _uiState.value.copy(allTags = tags)
+            } catch (_: Exception) { }
+        }
+    }
+
+    private fun filterByTag(tagId: Long?) {
+        val tagName = if (tagId != null) _uiState.value.allTags.find { it.id == tagId }?.name else null
+        _uiState.value = _uiState.value.copy(selectedTagId = tagId, selectedTagName = tagName)
+        loadNotes()
     }
 
     private fun search(query: String) {
@@ -119,6 +147,11 @@ class NoteListViewModel @Inject constructor(
     private fun clearSearch() {
         searchJob?.cancel()
         _uiState.value = _uiState.value.copy(searchQuery = "", isSearchActive = false)
+        loadNotes()
+    }
+
+    fun clearTagFilter() {
+        _uiState.value = _uiState.value.copy(selectedTagId = null, selectedTagName = null)
         loadNotes()
     }
 

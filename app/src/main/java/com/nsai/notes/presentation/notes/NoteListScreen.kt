@@ -10,18 +10,21 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -39,6 +42,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -71,6 +76,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.nsai.notes.domain.model.Note
+import com.nsai.notes.domain.model.Tag
 import com.nsai.notes.presentation.common.ErrorView
 import com.nsai.notes.presentation.theme.LocalAnimationConfig
 import com.nsai.notes.presentation.common.LoadingIndicator
@@ -259,12 +265,55 @@ fun NoteListScreen(
                 trailingIcon = { if (uiState.searchQuery.isNotEmpty()) { IconButton(onClick = { viewModel.onEvent(NoteListEvent.ClearSearch) }) { Icon(Icons.Default.Clear, contentDescription = "清除搜索") } } },
                 singleLine = true, shape = RoundedCornerShape(28.dp),
                 colors = TextFieldDefaults.colors(focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant, unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant, focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent))
-            Spacer(Modifier.height(8.dp))
+
+            if (uiState.allTags.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    FilterChip(
+                        selected = uiState.selectedTagId == null,
+                        onClick = { viewModel.clearTagFilter() },
+                        label = { Text("全部", style = MaterialTheme.typography.labelMedium) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        modifier = Modifier.height(32.dp)
+                    )
+                    uiState.allTags.forEach { tag ->
+                        FilterChip(
+                            selected = uiState.selectedTagId == tag.id,
+                            onClick = { viewModel.onEvent(NoteListEvent.FilterByTag(if (uiState.selectedTagId == tag.id) null else tag.id)) },
+                            label = { Text(tag.name, style = MaterialTheme.typography.labelMedium) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            ),
+                            modifier = Modifier.height(32.dp)
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(4.dp))
             Box(Modifier.fillMaxSize().weight(1f)) {
                 when {
                     uiState.isLoading -> LoadingIndicator()
                     uiState.error != null -> ErrorView(message = uiState.error ?: "", onRetry = { viewModel.onEvent(NoteListEvent.LoadNotes) })
-                    uiState.notes.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(if (uiState.isSearchActive) "未找到匹配的笔记" else "还没有笔记，点右下角创建", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) }
+                    uiState.notes.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            when {
+                                uiState.isSearchActive -> "未找到匹配的笔记"
+                                uiState.selectedTagId != null -> "该标签下暂无笔记"
+                                else -> "还没有笔记，点右下角创建"
+                            },
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                        )
+                    }
                     uiState.usePaging -> LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(count = pagingItems.itemCount) { index ->
                             pagingItems[index]?.let { note ->
@@ -283,7 +332,8 @@ fun NoteListScreen(
                                             } else onNavigateToEdit(note.id)
                                         },
                                         onToggleFavorite = { viewModel.onEvent(NoteListEvent.ToggleFavorite(note.id)) },
-                                        onLongClick = { bottomSheetNote = note }
+                                        onLongClick = { bottomSheetNote = note },
+                                        onTagClick = { tagId -> viewModel.onEvent(NoteListEvent.FilterByTag(tagId)) }
                                     )
                                 }
                             }
@@ -306,7 +356,8 @@ fun NoteListScreen(
                                         } else onNavigateToEdit(note.id)
                                     },
                                     onToggleFavorite = { viewModel.onEvent(NoteListEvent.ToggleFavorite(note.id)) },
-                                    onLongClick = { bottomSheetNote = note }
+                                    onLongClick = { bottomSheetNote = note },
+                                    onTagClick = { tagId -> viewModel.onEvent(NoteListEvent.FilterByTag(tagId)) }
                                 )
                             }
                         }
@@ -330,13 +381,15 @@ private fun NoteCardWithMenu(
     note: Note,
     onClick: () -> Unit,
     onToggleFavorite: () -> Unit,
-    onLongClick: () -> Unit
+    onLongClick: () -> Unit,
+    onTagClick: (Long) -> Unit = {}
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     NoteCard(
         note = note,
         onClick = onClick,
         onToggleFavorite = onToggleFavorite,
+        onTagClick = onTagClick,
         modifier = Modifier.combinedClickable(
             onClick = onClick,
             onLongClick = onLongClick,
