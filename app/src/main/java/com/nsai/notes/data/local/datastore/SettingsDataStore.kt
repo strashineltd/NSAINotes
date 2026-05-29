@@ -128,11 +128,13 @@ class SettingsDataStore @Inject constructor(
     suspend fun saveProviderConfig(config: AIProviderConfig) {
         dataStore.edit { prefs ->
             val key = config.provider.name
-            prefs[Keys.apiKeyKey(key)] = if (config.apiKey.isNotEmpty())
+            if (config.apiKey.isNotEmpty()) {
                 runCatching { keyStore.encryptToString(config.apiKey) }
-                    .onFailure { Log.e("SettingsDataStore", "Failed to encrypt API key for $key", it) }
-                    .getOrDefault("")
-            else ""
+                    .onSuccess { prefs[Keys.apiKeyKey(key)] = it }
+                    .onFailure { Log.e("SettingsDataStore", "Failed to encrypt API key for $key — old key preserved", it) }
+            } else {
+                prefs[Keys.apiKeyKey(key)] = ""
+            }
             prefs[Keys.baseUrlKey(key)] = config.baseUrl
             prefs[Keys.enabledKey(key)] = if (config.isEnabled) "true" else "false"
         }

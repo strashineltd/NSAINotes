@@ -207,15 +207,21 @@ class AIHomeViewModel @Inject constructor(
             testResults = _uiState.value.testResults + (provider to "测试中...")
         )
         viewModelScope.launch {
-            val config = _uiState.value.providerConfigs.find { it.provider == provider }
-            val result = connectionTester.testConnection(
-                provider,
-                config?.apiKey ?: "",
-                config?.baseUrl ?: provider.defaultBaseUrl
-            )
-            _uiState.value = _uiState.value.copy(
-                testResults = _uiState.value.testResults + (provider to result)
-            )
+            try {
+                val config = _uiState.value.providerConfigs.find { it.provider == provider }
+                val result = connectionTester.testConnection(
+                    provider,
+                    config?.apiKey ?: "",
+                    config?.baseUrl ?: provider.defaultBaseUrl
+                )
+                _uiState.value = _uiState.value.copy(
+                    testResults = _uiState.value.testResults + (provider to result)
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    testResults = _uiState.value.testResults + (provider to "连接失败: ${e.localizedMessage ?: "未知错误"}")
+                )
+            }
         }
     }
 
