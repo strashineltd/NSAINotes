@@ -8,8 +8,11 @@ import com.nsai.notes.data.remote.ai.ConnectionTester
 import com.nsai.notes.domain.model.AIProvider
 import com.nsai.notes.domain.model.AIProviderConfig
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
@@ -35,6 +38,7 @@ sealed class AIModelSettingsEvent {
     data class UpdateCustomProvider(val index: Int, val config: AIProviderConfig) : AIModelSettingsEvent()
     data class DeleteCustomProvider(val index: Int) : AIModelSettingsEvent()
     data class ClearApiKey(val provider: AIProvider, val customIndex: Int = -1) : AIModelSettingsEvent()
+    data class CopyApiKey(val provider: AIProvider, val customIndex: Int = -1) : AIModelSettingsEvent()
 }
 
 @HiltViewModel
@@ -45,6 +49,9 @@ class AIModelSettingsViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(AIModelSettingsUiState())
     val uiState: StateFlow<AIModelSettingsUiState> = _uiState.asStateFlow()
+
+    private val _copyText = MutableSharedFlow<String>()
+    val copyText: SharedFlow<String> = _copyText.asSharedFlow()
 
     init { /* load configs deferred to Screen on first composition */ }
 
@@ -63,6 +70,7 @@ class AIModelSettingsViewModel @Inject constructor(
             is AIModelSettingsEvent.UpdateCustomProvider -> updateCustom(event.index, event.config)
             is AIModelSettingsEvent.DeleteCustomProvider -> deleteCustom(event.index)
             is AIModelSettingsEvent.ClearApiKey -> clearApiKey(event.provider, event.customIndex)
+            is AIModelSettingsEvent.CopyApiKey -> copyApiKey(event.provider, event.customIndex)
         }
     }
 
@@ -112,6 +120,21 @@ class AIModelSettingsViewModel @Inject constructor(
                     settingsDataStore.saveProviderConfig(
                         settingsDataStore.getProviderConfig(provider).copy(apiKey = "")
                     )
+                }
+            } catch (_: Exception) { }
+        }
+    }
+
+    private fun copyApiKey(provider: AIProvider, customIndex: Int) {
+        viewModelScope.launch {
+            try {
+                val apiKey = if (provider == AIProvider.CUSTOM && customIndex >= 0) {
+                    settingsDataStore.customProviders.first().getOrNull(customIndex)?.apiKey ?: ""
+                } else {
+                    settingsDataStore.getProviderConfig(provider).apiKey
+                }
+                if (apiKey.isNotEmpty()) {
+                    _copyText.emit(apiKey)
                 }
             } catch (_: Exception) { }
         }

@@ -30,6 +30,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.NetworkCheck
@@ -58,10 +60,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
+import android.widget.Toast
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -80,6 +85,15 @@ fun AIModelSettingsScreen(
 
     LaunchedEffect(Unit) {
         viewModel.load()
+    }
+
+    val clipboardManager = LocalClipboardManager.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(Unit) {
+        viewModel.copyText.collect { text ->
+            clipboardManager.setText(AnnotatedString(text))
+            Toast.makeText(context, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
+        }
     }
 
     Scaffold(
@@ -135,7 +149,8 @@ fun AIModelSettingsScreen(
                             uiState.providerConfigs.take(index + 1).count { it.provider == AIProvider.CUSTOM } - 1
                         ))
                     }) else null,
-                    onClearApiKey = { viewModel.onEvent(AIModelSettingsEvent.ClearApiKey(config.provider, customIdx)) }
+                    onClearApiKey = { viewModel.onEvent(AIModelSettingsEvent.ClearApiKey(config.provider, customIdx)) },
+                    onCopyApiKey = { viewModel.onEvent(AIModelSettingsEvent.CopyApiKey(config.provider, customIdx)) }
                 )
             }
 
@@ -184,11 +199,13 @@ private fun ExpandableModelCard(
     onToggleEnabled: () -> Unit,
     onTestConnection: () -> Unit,
     onDelete: (() -> Unit)? = null,
-    onClearApiKey: (() -> Unit)? = null
+    onClearApiKey: (() -> Unit)? = null,
+    onCopyApiKey: (() -> Unit)? = null
 ) {
     val tokens = LocalAnimationConfig.current
     var expanded by remember { mutableStateOf(false) }
     var showClearConfirm by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     val displayName = config.customDisplayName ?: config.provider.displayName
 
@@ -302,11 +319,34 @@ private fun ExpandableModelCard(
                         singleLine = true,
                         enabled = config.isEnabled,
                         shape = RoundedCornerShape(12.dp),
-                        trailingIcon = if (onClearApiKey != null && config.apiKey.isNotEmpty()) {
-                            { IconButton(onClick = { showClearConfirm = true }) {
-                                Icon(Icons.Default.Delete, "删除密钥", tint = MaterialTheme.colorScheme.error)
-                            } }
-                        } else null
+                        trailingIcon = {
+                            Row {
+                                if (onClearApiKey != null && config.apiKey.isNotEmpty()) {
+                                    IconButton(onClick = { showClearConfirm = true }) {
+                                        Icon(Icons.Default.Delete, "删除密钥", tint = MaterialTheme.colorScheme.error)
+                                    }
+                                }
+                                if (onCopyApiKey != null && config.apiKey.isNotEmpty()) {
+                                    IconButton(onClick = { onCopyApiKey() }) {
+                                        Icon(Icons.Default.ContentCopy, "复制", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                                if (config.apiKey.isEmpty()) {
+                                    IconButton(onClick = {
+                                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                                        val text = clipboard?.primaryClip?.getItemAt(0)?.text?.toString()
+                                            ?: com.nsai.notes.data.local.ClipboardKeyHolder.pendingKey
+                                        if (!text.isNullOrBlank()) {
+                                            onApiKeyChange(text)
+                                            com.nsai.notes.data.local.ClipboardKeyHolder.pendingKey = null
+                                            Toast.makeText(context, "已粘贴", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }) {
+                                        Icon(Icons.Default.ContentPaste, "粘贴", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
                     )
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(

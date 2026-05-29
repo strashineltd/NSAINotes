@@ -142,13 +142,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun clearClipboardSensitive() {
-        // Clear any API keys that might have leaked to clipboard
         val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
         if (clipboard?.hasPrimaryClip() == true) {
             val clipText = clipboard.primaryClip?.getItemAt(0)?.text?.toString() ?: ""
-            // Detect API key patterns and clear them
             if (clipText.contains("sk-") || clipText.contains("Bearer ") ||
                 Regex("[0-9a-fA-F]{32,}").containsMatchIn(clipText)) {
+                com.nsai.notes.data.local.ClipboardKeyHolder.pendingKey = clipText
                 clipboard.clearPrimaryClip()
             }
         }
